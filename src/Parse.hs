@@ -127,13 +127,17 @@ binding = do v <- var
              ty <- typeP
              return (v, ty)
 
+binders :: P [(Name, Ty)]
+binders = many (parens binding) 
+
+
 lam :: P STerm
 lam = do i <- getPos
          reserved "fun"
-         (v,ty) <- parens binding
+         list <- binders
          reservedOp "->"
          t <- expr
-         return (SLam i (v,ty) t)
+         return (SLam i list t)
 
 -- Nota el parser app también parsea un solo atom.
 app :: P STerm
@@ -156,21 +160,52 @@ fix :: P STerm
 fix = do i <- getPos
          reserved "fix"
          (f, fty) <- parens binding
-         (x, xty) <- parens binding
+         args <- binders
          reservedOp "->"
          t <- expr
-         return (SFix i (f,fty) (x,xty) t)
+         return (SFix i (f,fty) args t)
 
 letexp :: P STerm
 letexp = do
   i <- getPos
   reserved "let"
-  (v,ty) <- parens binding
+  (v,ty) <- parens binding <|> binding
   reservedOp "="  
   def <- expr
   reserved "in"
   body <- expr
   return (SLet i (v,ty) def body)
+
+letfunexp :: P STerm
+letfunexp = do
+  i <- getPos
+  reserved "let"
+  try recp <|> 
+      (do f <- var
+          args <- binders
+          reservedOp ":"
+          fty <- typeP
+          reservedOp "="  
+          def <- expr
+          reserved "in"
+          body <- expr
+          return (SLetFun i False (f, foldl fun fty args) (SLam i args def) body)
+          where fun tys (v, ty) = FunTy ty tys)
+
+recp :: P Bool
+recp = do
+  reserved "rec"
+  f <- var
+  args <- binders
+  reservedOp ":"
+  fty <- typeP
+  reservedOp "="  
+  def <- expr
+  reserved "in"
+  body <- expr
+  return (SLetFun i True (f, foldl fun fty args) (SFix i args def) body )
+  where fun tys (v, ty) = FunTy ty tys
+
 
 -- | Parser de términos
 tm :: P STerm
@@ -181,10 +216,22 @@ decl :: P (Decl STerm)
 decl = do 
      i <- getPos
      reserved "let"
-     v <- var
+     f <- var
+     args <- binders
+     reservedOp ":"
+     fty <- typeP
      reservedOp "="
      t <- expr
-     return (Decl i v t)
+     return (Decl i v (foldl fun fty args) (SLam i args t))
+
+declfun :: P (Decl STerm)
+declfun = do 
+     i <- getPos
+     reserved "let"
+     args <- binders
+     reservedOp "="
+     t <- expr
+     return (Decl i v ty t)
 
 -- | Parser de programas (listas de declaraciones) 
 program :: P [Decl STerm]
