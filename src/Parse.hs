@@ -180,7 +180,7 @@ letfunexp :: P STerm
 letfunexp = do
   i <- getPos
   reserved "let"
-  try recp <|> 
+  try (recp i) <|> 
       (do f <- var
           args <- binders
           reservedOp ":"
@@ -189,11 +189,10 @@ letfunexp = do
           def <- expr
           reserved "in"
           body <- expr
-          return (SLetFun i False (f, foldl fun fty args) (SLam i args def) body)
-          where fun tys (v, ty) = FunTy ty tys)
+          return $ SLetFun i False (f, fty) args def body)
 
-recp :: P Bool
-recp = do
+recp :: Pos -> P STerm
+recp i = do
   reserved "rec"
   f <- var
   args <- binders
@@ -203,44 +202,57 @@ recp = do
   def <- expr
   reserved "in"
   body <- expr
-  return (SLetFun i True (f, foldl fun fty args) (SFix i args def) body )
-  where fun tys (v, ty) = FunTy ty tys
+  return $ SLetFun i True (f, fty) args def body
 
 
 -- | Parser de términos
 tm :: P STerm
-tm = app <|> lam <|> ifz <|> printOp <|> fix <|> letexp
+tm = app <|> lam <|> ifz <|> printOp <|> fix <|>  letfunexp <|> letexp
 
 -- | Parser de declaraciones
 decl :: P (Decl STerm)
 decl = do 
      i <- getPos
      reserved "let"
+     (v, ty) <- binding <|> parens binding 
+     reservedOp "="
+     t <- expr
+     return (Decl i False v ty [] t)
+
+declfun :: P (Decl STerm)
+declfun = do     
+     i <- getPos
+     reserved "let"
+     try (declrec i) <|> (do
+          f <- var
+          args <- binders
+          reservedOp ":"
+          fty <- typeP
+          reservedOp "="
+          t <- expr
+          return (Decl i False f fty args t))
+
+declrec :: Pos -> P (Decl STerm)
+declrec i = do
+     reserved "rec"
      f <- var
      args <- binders
      reservedOp ":"
      fty <- typeP
      reservedOp "="
      t <- expr
-     return (Decl i v (foldl fun fty args) (SLam i args t))
+     return $ Decl i True f fty args t
 
-declfun :: P (Decl STerm)
-declfun = do 
-     i <- getPos
-     reserved "let"
-     args <- binders
-     reservedOp "="
-     t <- expr
-     return (Decl i v ty t)
+
 
 -- | Parser de programas (listas de declaraciones) 
 program :: P [Decl STerm]
-program = many decl
+program = many (decl <|> declfun)
 
 -- | Parsea una declaración a un término
 -- Útil para las sesiones interactivas
 declOrTm :: P (Either (Decl STerm) STerm)
-declOrTm =  try (Left <$> decl) <|> (Right <$> expr)
+declOrTm =  try (Left <$> (decl <|> declfun)) <|> (Right <$> expr)
 
 -- Corre un parser, chequeando que se pueda consumir toda la entrada
 runP :: P a -> String -> String -> Either ParseError a

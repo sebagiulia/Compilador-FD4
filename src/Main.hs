@@ -120,18 +120,18 @@ parseIO filename p x = case runP p x filename of
                   Right r -> return r
 
 evalDecl :: MonadFD4 m => Decl TTerm -> m (Decl TTerm)
-evalDecl (Decl p x e) = do
+evalDecl (Decl p b x ty l e) = do
     e' <- eval e
-    return (Decl p x e')
+    return (Decl p b x ty l e')
 
 handleDecl ::  MonadFD4 m => Decl STerm -> m ()
 handleDecl d = do
         m <- getMode
         case m of
           Interactive -> do
-              (Decl p x tt) <- typecheckDecl d
+              (Decl p b x ty l tt) <- typecheckDecl d
               te <- eval tt
-              addDecl (Decl p x te)
+              addDecl (Decl p b x ty l te)
           Typecheck -> do
               f <- getLastFile
               printFD4 ("Chequeando tipos de "++f)
@@ -146,7 +146,7 @@ handleDecl d = do
 
       where
         typecheckDecl :: MonadFD4 m => Decl STerm -> m (Decl TTerm)
-        typecheckDecl (Decl p x t) = tcDecl (Decl p x (elab t))
+        typecheckDecl (Decl p b x ty l t) = tcDecl (Decl p b x ty l (elab t))
 
 
 data Command = Compile CompileForm

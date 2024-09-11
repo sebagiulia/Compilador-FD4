@@ -56,8 +56,10 @@ data BinaryOp = Add | Sub
 -- | tipo de datos de declaraciones, parametrizado por el tipo del cuerpo de la declaración
 data Decl a = Decl
   { declPos  :: Pos
+  , isRec    :: Bool
   , declName :: Name
   , declType :: Ty
+  , declArgs :: [(Name, Ty)]
   , declBody :: a
   }
   deriving (Show, Functor)
