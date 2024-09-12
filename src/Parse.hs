@@ -169,7 +169,7 @@ letexp :: P STerm
 letexp = do
   i <- getPos
   reserved "let"
-  (v,ty) <- parens binding <|> binding
+  (v,ty) <- try binding <|> (parens binding)
   reservedOp "="  
   def <- expr
   reserved "in"
@@ -207,14 +207,14 @@ recp i = do
 
 -- | Parser de términos
 tm :: P STerm
-tm = app <|> lam <|> ifz <|> printOp <|> fix <|>  letfunexp <|> letexp
+tm =  app <|> lam <|> ifz <|> printOp <|> fix <|> letexp <|> letfunexp
 
 -- | Parser de declaraciones
 decl :: P (Decl STerm)
 decl = do 
      i <- getPos
      reserved "let"
-     (v, ty) <- binding <|> parens binding 
+     (v, ty) <- try binding <|> (parens binding)
      reservedOp "="
      t <- expr
      return (Decl i False v ty [] t)
@@ -223,7 +223,8 @@ declfun :: P (Decl STerm)
 declfun = do     
      i <- getPos
      reserved "let"
-     try (declrec i) <|> (do
+     try (declrec i) <|>
+          (do
           f <- var
           args <- binders
           reservedOp ":"
@@ -244,15 +245,14 @@ declrec i = do
      return $ Decl i True f fty args t
 
 
-
 -- | Parser de programas (listas de declaraciones) 
 program :: P [Decl STerm]
-program = many (decl <|> declfun)
+program = many (try decl <|> declfun)
 
 -- | Parsea una declaración a un término
 -- Útil para las sesiones interactivas
 declOrTm :: P (Either (Decl STerm) STerm)
-declOrTm =  try (Left <$> (decl <|> declfun)) <|> (Right <$> expr)
+declOrTm = try (Left <$> (try decl <|> declfun)) <|> (Right <$> expr)
 
 -- Corre un parser, chequeando que se pueda consumir toda la entrada
 runP :: P a -> String -> String -> Either ParseError a

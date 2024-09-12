@@ -29,7 +29,7 @@ import Global
 import Errors
 import Lang
 import Parse ( P, tm, program, declOrTm, runP )
-import Elab ( elab )
+import Elab ( elab, elabDecl )
 import Eval ( eval )
 import PPrint ( pp , ppTy, ppDecl )
 import MonadFD4
@@ -59,7 +59,7 @@ main = execParser opts >>= go
     opts = info (parseArgs <**> helper)
       ( fullDesc
      <> progDesc "Compilador de FD4"
-     <> header "Compilador de FD4 de la materia Compiladores 2022" )
+     <> header "Compilador de FD4 de la materia Compiladores 2024" )
 
     go :: (Mode,Bool,[FilePath]) -> IO ()
     go (Interactive,opt,files) =
@@ -146,7 +146,7 @@ handleDecl d = do
 
       where
         typecheckDecl :: MonadFD4 m => Decl STerm -> m (Decl TTerm)
-        typecheckDecl (Decl p b x ty l t) = tcDecl (Decl p b x ty l (elab t))
+        typecheckDecl = tcDecl . elabDecl
 
 
 data Command = Compile CompileForm

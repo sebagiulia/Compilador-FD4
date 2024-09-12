@@ -1,0 +1,1 @@
+let x:Nat = 10 in x + 2
