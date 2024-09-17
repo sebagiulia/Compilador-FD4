@@ -1,5 +1,5 @@
-TESTDIRS += tests/ok/00-basicos
-# TESTDIRS += tests/ok/10-sugar
+# TESTDIRS += tests/ok/00-basicos
+TESTDIRS += tests/ok/10-sugar
 # TESTDIRS += tests/ok/20-tysym
 
 TESTS	:= $(shell find $(TESTDIRS) -name '*.fd4' -type f | sort)
@@ -26,6 +26,7 @@ CHECK	+= $(patsubst %,%.check_eval,$(TESTS))
 # Ejemplo: así se puede apagar un test en particular.
 CHECK	:= $(filter-out tests/ok/00-basicos/401-inf.%,$(CHECK))
 
+CHECK	:= $(filter-out tests/ok/10-sugar/120-letfunin.%,$(CHECK))
 # Esta regla corre todos los tests (por sus dependencias) y luego
 # imprime un mensaje.
 test_all: $(CHECK)

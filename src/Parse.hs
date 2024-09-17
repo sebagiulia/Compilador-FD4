@@ -101,8 +101,7 @@ printOp = do
   i <- getPos
   reserved "print"
   str <- option "" stringLiteral
-  a <- atom
-  return (SPrint i str a)
+  return (SPrint i str)
 
 binary :: String -> BinaryOp -> Assoc -> Operator String () Identity STerm
 binary s f = Ex.Infix (reservedOp s >> return (SBinaryOp NoPos f))
@@ -254,7 +253,7 @@ declrec i = do
 
 -- | Parser de programas (listas de declaraciones) 
 program :: P [Decl STerm]
-program = many (decl <|> declfun)
+program = many (try decl <|> declfun)
 
 -- | Parsea una declaración a un término
 -- Útil para las sesiones interactivas

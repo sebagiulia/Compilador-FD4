@@ -76,7 +76,7 @@ openAll gp ns (Fix p f fty x xty t) =
     (vars, ns', t') = takeVars (open2 f' x' t) (f':x':ns)
   in SFix (gp p) (f',fty) ((x', xty):vars) (openAll gp ns' t')
 openAll gp ns (IfZ p c t e) = SIfZ (gp p) (openAll gp ns c) (openAll gp ns t) (openAll gp ns e)
-openAll gp ns (Print p str t) = SPrint (gp p) str (openAll gp ns t)
+openAll gp ns (Print p str t) = SApp (gp p) (SPrint (gp p) str) (openAll gp ns t)
 openAll gp ns (BinaryOp p op t u) = SBinaryOp (gp p) op (openAll gp ns t) (openAll gp ns u)
 openAll gp ns (Let p v ty m n) =
     let v'= freshen ns v
@@ -158,6 +158,8 @@ t2doc at (SLam _ args t) =
            , opColor (pretty "->")]
       , nest 2 (t2doc False t)]
 
+t2doc at (SApp _ (SPrint _ _) _) = undefined
+
 t2doc at t@(SApp _ _ _) =
   let (h, ts) = collectApp t in
   parenIf at $
@@ -177,9 +179,9 @@ t2doc at (SIfZ _ c t e) =
      , keywordColor (pretty "then"), nest 2 (t2doc False t)
      , keywordColor (pretty "else"), nest 2 (t2doc False e) ]
 
-t2doc at (SPrint _ str t) =
+t2doc at (SPrint _ str) =
   parenIf at $
-  sep [keywordColor (pretty "print"), pretty (show str), t2doc True t]
+  sep [keywordColor (pretty "print"), pretty (show str)]
 
 t2doc at (SLet _ (v,ty) t t') =
   parenIf at $

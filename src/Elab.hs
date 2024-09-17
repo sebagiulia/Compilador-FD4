@@ -38,8 +38,9 @@ elab' env (SIfZ p c t e)         = IfZ p (elab' env c) (elab' env t) (elab' env 
 -- Operadores binarios
 elab' env (SBinaryOp i o t u) = BinaryOp i o (elab' env t) (elab' env u)
 -- Operador Print
-elab' env (SPrint i str t) = Print i str (elab' env t)
+elab' env (SPrint i str) = Lam i "x" NatTy (close "x" (Print i str (Const i (CNat 0)))) 
 -- Aplicaciones generales
+elab' env (SApp p (SPrint i str) a) = Print i str (elab' env a)
 elab' env (SApp p h a) = App p (elab' env h) (elab' env a)
 elab' env (SLet p (v,vty) def body) =  
   Let p v vty (elab' env def) (close v (elab' (v:env) body))
