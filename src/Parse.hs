@@ -127,9 +127,16 @@ binding = do v <- var
              ty <- typeP
              return (v, ty)
 
-binders :: P [(Name, Ty)]
-binders = many (parens binding) 
+-- (x : Nat) (y z : Nat) (j : Nat)
+multibinders :: P [(Name, Ty)]
+multibinders = do vs <- many var
+                  reservedOp ":"
+                  ty <- typeP
+                  return (map (\v -> (v, ty)) vs)
 
+binders :: P [(Name, Ty)]
+binders = do l <- many (parens multibinders)
+             return (concat l)
 
 lam :: P STerm
 lam = do i <- getPos

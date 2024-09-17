@@ -44,7 +44,7 @@ elab' env (SApp p h a) = App p (elab' env h) (elab' env a)
 elab' env (SLet p (v,vty) def body) =  
   Let p v vty (elab' env def) (close v (elab' (v:env) body))
 elab' env (SLetFun p False (f, fty) args t1 t2) = Let p f (foldl typeConverter fty args) (elab' env (SLam p args t1)) (close f (elab' (f:env) t2)) 
-elab' env (SLetFun p True (f, fty) args t1 t2) =  Let p f (foldl typeConverter fty args) (elab' env (SFix p (f,(foldl typeConverter fty args)) args t1)) (close f (elab' (f:env) t2))
+elab' env (SLetFun p True (f, fty) args t1 t2) =  Let p f (foldl typeConverter fty args) (elab' env (SFix p (f,foldl typeConverter fty args) args t1)) (close f (elab' (f:env) t2))
 
 elabDecl :: Decl STerm -> Decl Term
 elabDecl d@(Decl _ _ _ _ [] _) = fmap elab d

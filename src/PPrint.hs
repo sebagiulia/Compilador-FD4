@@ -38,10 +38,20 @@ import Prettyprinter
       Pretty(pretty) )
 import MonadFD4 ( gets, MonadFD4 )
 import Global ( GlEnv(glb) )
+import Data.List
+import Data.Function
 
 freshen :: [Name] -> Name -> Name
 freshen ns n = let cands = n : map (\i -> n ++ show i) [0..]
                in head (filter (`notElem` ns) cands)
+
+
+takeVars :: Tm info Var -> [Name] -> ([(Name, Ty)], [Name], Tm info Var)
+takeVars (Lam i z zty te) ms =   
+  let z' = freshen ms z
+      (zs', ms', te') = takeVars (open z' te) (z':ms)  
+  in ((z', zty):zs', ms', te')
+takeVars te ms = ([], ms, te)
 
 -- | 'openAll' convierte términos locally nameless
 -- a términos fully named abriendo todos las variables de ligadura que va encontrando
@@ -54,21 +64,32 @@ openAll gp ns (V p v) = case v of
       Free x -> SV (gp p) x
       Global x -> SV (gp p) x
 openAll gp ns (Const p c) = SConst (gp p) c
-openAll gp ns (Lam p x ty t) =
+openAll gp ns (Lam p x xty t) =
   let x' = freshen ns x
-  in SLam (gp p) [(x',ty)] (openAll gp (x':ns) (open x' t))
+      (vars, ns', t') = takeVars (Lam p x xty t) ns  
+  in SLam (gp p) vars (openAll gp ns' t')
 openAll gp ns (App p t u) = SApp (gp p) (openAll gp ns t) (openAll gp ns u)
 openAll gp ns (Fix p f fty x xty t) =
   let
     x' = freshen ns x
     f' = freshen (x':ns) f
-  in SFix (gp p) (f',fty) [(x',xty)] (openAll gp (x:f:ns) (open2 f' x' t))
+    (vars, ns', t') = takeVars (open2 f' x' t) (f':x':ns)
+  in SFix (gp p) (f',fty) ((x', xty):vars) (openAll gp ns' t')
 openAll gp ns (IfZ p c t e) = SIfZ (gp p) (openAll gp ns c) (openAll gp ns t) (openAll gp ns e)
 openAll gp ns (Print p str t) = SPrint (gp p) str (openAll gp ns t)
 openAll gp ns (BinaryOp p op t u) = SBinaryOp (gp p) op (openAll gp ns t) (openAll gp ns u)
 openAll gp ns (Let p v ty m n) =
     let v'= freshen ns v
-    in  SLet (gp p) (v',ty) (openAll gp ns m) (openAll gp (v':ns) (open v' n))
+        (vars, ns', t') = takeVars m (v':ns)
+    in if null vars 
+        then case t' of
+          (Fix _ f fty x xty m') -> 
+            let x' = freshen ns' x
+                f' = freshen (x':ns') f
+                (vars', ns'', t'') = takeVars (open2 f' x' m') (f':x':ns') 
+            in SLetFun (gp p) True (v',ty) ((x',xty):vars') (openAll gp ns'' t'') (openAll gp (v':ns) (open v' n))
+          _ -> SLet (gp p) (v', ty) (openAll gp ns m) (openAll gp (v':ns) (open v' n))
+        else SLetFun (gp p) False (v',ty) vars (openAll gp ns' t') (openAll gp (v':ns) (open v' n))
 
 --Colores
 constColor :: Doc AnsiStyle -> Doc AnsiStyle
@@ -189,9 +210,13 @@ t2doc at (SBinaryOp _ o a b) =
   t2doc True a <+> binary2doc o <+> t2doc True b
 
 binding2doc :: [(Name, Ty)] -> Doc AnsiStyle
-binding2doc xs = sep (map f xs)
-  where f (x,ty) = parens (sep [name2doc x, pretty ":", ty2doc ty])
-
+binding2doc xs = let list = sortBy (compare `on` snd) xs  
+                     groupedList = groupBy ((==) `on` snd) list
+                     combined = map (\l -> (map fst l, snd (head l))) groupedList
+                 in sep (map f combined)
+                 where f (g, ty) = parens (sep [sep (map name2doc g), pretty ":", ty2doc ty])
+  
+  
 -- | Pretty printing de términos (String)
 pp :: MonadFD4 m => TTerm -> m String
 -- Uncomment to use the Show instance for Term

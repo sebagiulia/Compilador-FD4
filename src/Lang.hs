@@ -41,7 +41,7 @@ data STm info ty var =
 data Ty =
       NatTy
     | FunTy Ty Ty
-    deriving (Show,Eq)
+    deriving (Show,Eq, Ord)
 
 type Name = String
 
@@ -77,7 +77,7 @@ data Tm info var =
   | BinaryOp info BinaryOp (Tm info var) (Tm info var)
   | Fix info Name Ty Name Ty (Scope2 info var)
   | IfZ info (Tm info var) (Tm info var) (Tm info var)
-  | Let info Name Ty (Tm info var)  (Scope info var)
+  | Let info Name Ty (Tm info var) (Scope info var)
   deriving (Show, Functor)
 
 
