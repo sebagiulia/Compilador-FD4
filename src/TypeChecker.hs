@@ -57,8 +57,8 @@ tc (App p t u) bs = do
 tc (Fix p f fty x xty t) bs = do
          (dom, cod) <- domCod (V (p,fty) (Free f))
          when (dom /= xty) $ do
-           failPosFD4 p "El tipo del argumento de un fixpoint debe coincidir con el \
-                        \dominio del tipo de la función"
+           failPosFD4 p ("El tipo del argumento de un fixpoint debe coincidir con el \
+                        \dominio del tipo de la función" ++ show dom ++ show xty ++ show fty)
          let t' = open2 f x t
          tt' <- tc t' ((x,xty):(f,fty):bs)
          expect cod tt'

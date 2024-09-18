@@ -38,19 +38,20 @@ elab' env (SIfZ p c t e)         = IfZ p (elab' env c) (elab' env t) (elab' env 
 -- Operadores binarios
 elab' env (SBinaryOp i o t u) = BinaryOp i o (elab' env t) (elab' env u)
 -- Operador Print
-elab' env (SPrint i str) = Lam i "x" NatTy (close "x" (Print i str (Const i (CNat 0)))) 
+elab' env (SPrint i str) = Lam i "x" NatTy (close "x" (Print i str (elab' ("x":env) (SV i "x"))))  -- Se encapsula en una expresión lambda
+--elab' env (SPrint i str) = App i (Lam i "x" NatTy (close "x" (Print i str (elab' ("x":env) (SV i "x"))))) (Const i (CNat 0))  -- Se encapsula en una expresión lambda
 -- Aplicaciones generales
 elab' env (SApp p (SPrint i str) a) = Print i str (elab' env a)
 elab' env (SApp p h a) = App p (elab' env h) (elab' env a)
 elab' env (SLet p (v,vty) def body) =  
   Let p v vty (elab' env def) (close v (elab' (v:env) body))
-elab' env (SLetFun p False (f, fty) args t1 t2) = Let p f (foldl typeConverter fty args) (elab' env (SLam p args t1)) (close f (elab' (f:env) t2)) 
-elab' env (SLetFun p True (f, fty) args t1 t2) =  Let p f (foldl typeConverter fty args) (elab' env (SFix p (f,foldl typeConverter fty args) args t1)) (close f (elab' (f:env) t2))
+elab' env (SLetFun p False (f, fty) args t1 t2) = Let p f (foldr typeConverter fty args) (elab' env (SLam p args t1)) (close f (elab' (f:env) t2)) 
+elab' env (SLetFun p True (f, fty) args t1 t2) =  Let p f (foldr typeConverter fty args) (elab' env (SFix p (f,foldr typeConverter fty args) args t1)) (close f (elab' (f:env) t2))
 
 elabDecl :: Decl STerm -> Decl Term
 elabDecl d@(Decl _ _ _ _ [] _) = fmap elab d
-elabDecl d@(Decl p False f fty args t) = fmap elab (Decl p True f (foldl typeConverter fty args) [] (SLam p args t)) 
-elabDecl d@(Decl p True f fty args t) = fmap elab (Decl p True f (foldl typeConverter fty args) [] (SFix p (f,(foldl typeConverter fty args)) args t)) 
+elabDecl d@(Decl p False f fty args t) = fmap elab (Decl p True f (foldr typeConverter fty args) [] (SLam p args t)) 
+elabDecl d@(Decl p True f fty args t) = fmap elab (Decl p True f (foldr typeConverter fty args) [] (SFix p (f,(foldr typeConverter fty args)) args t)) 
 
-typeConverter :: Ty -> (Name, Ty) -> Ty
-typeConverter tys (_, t) = FunTy t tys
+typeConverter :: (Name, Ty) -> Ty -> Ty
+typeConverter (_, t) tys = FunTy t tys

@@ -126,7 +126,6 @@ binding = do v <- var
              ty <- typeP
              return (v, ty)
 
--- (x : Nat) (y z : Nat) (j : Nat)
 multibinders :: P [(Name, Ty)]
 multibinders = do vs <- many var
                   reservedOp ":"
