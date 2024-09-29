@@ -25,6 +25,8 @@ import Data.Maybe ( fromMaybe )
 import System.Exit ( exitWith, ExitCode(ExitFailure) )
 import Options.Applicative
 
+import Common
+import CEK
 import Global
 import Errors
 import Lang
@@ -45,6 +47,7 @@ parseMode :: Parser (Mode,Bool)
 parseMode = (,) <$>
       (flag' Typecheck ( long "typecheck" <> short 't' <> help "Chequear tipos e imprimir el término")
       <|> flag Interactive Interactive ( long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
+      <|> flag InteractiveCEK InteractiveCEK ( long "interactiveCEK" <> short 'k' <> help "Ejecutar en maquina abstracta")
       <|> flag Eval        Eval        (long "eval" <> short 'e' <> help "Evaluar programa")
       )
    <*> pure False
@@ -64,6 +67,8 @@ main = execParser opts >>= go
     go :: (Mode,Bool,[FilePath]) -> IO ()
     go (Interactive,opt,files) =
               runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
+    go (InteractiveCEK,opt,files) =
+              runOrFail (Conf opt InteractiveCEK) (runInputT defaultSettings (repl files))
     go (m,opt, files) =
               runOrFail (Conf opt m) $ mapM_ compileFile files
 
@@ -124,6 +129,11 @@ evalDecl (Decl p b x ty l e) = do
     e' <- eval e
     return (Decl p b x ty l e')
 
+val2term :: (Pos, Ty) -> Val -> TTerm
+val2term p (CEK.Const n) = Lang.Const p n
+val2term p (ClosFun e x s) = undefined--Lam p x _ s 
+val2term p (ClosFix e f x s) = undefined--Fix p f _ x _ s 
+
 handleDecl ::  MonadFD4 m => Decl STerm -> m ()
 handleDecl d = do
         m <- getMode
@@ -132,6 +142,10 @@ handleDecl d = do
               (Decl p b x ty l tt) <- typecheckDecl d
               te <- eval tt
               addDecl (Decl p b x ty l te)
+          InteractiveCEK -> do
+              (Decl p b x ty l tt) <- typecheckDecl d
+              v <- seek tt [] []
+              addDecl (Decl p b x ty l (val2term (getInfo tt) v))    
           Typecheck -> do
               f <- getLastFile
               printFD4 ("Chequeando tipos de "++f)
@@ -233,12 +247,20 @@ compilePhrase x = do
 
 handleTerm ::  MonadFD4 m => STerm -> m ()
 handleTerm t = do
+         m <- getMode
          let t' = elab t
          s <- get
          tt <- tc t' (tyEnv s)
-         te <- eval tt
-         ppte <- pp te
-         printFD4 (ppte ++ " : " ++ ppTy (getTy tt))
+         case m of 
+           InteractiveCEK -> do 
+             v <- seek tt [] []
+             let te = val2term (getInfo tt) v 
+             ppte <- pp te
+             printFD4 (ppte ++ " : " ++ ppTy (getTy tt))
+           _ -> do 
+             te <- eval tt
+             ppte <- pp te
+             printFD4 (ppte ++ " : " ++ ppTy (getTy tt))
 
 printPhrase   :: MonadFD4 m => String -> m ()
 printPhrase x =
