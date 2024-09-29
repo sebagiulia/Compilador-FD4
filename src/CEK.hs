@@ -7,8 +7,8 @@ import PPrint
 
 data Val =
     Const Const
-  | ClosFun Env Name (Scope (Pos, Ty) Var)  
-  | ClosFix Env Name Name (Scope2 (Pos, Ty) Var)
+  | ClosFun Env Name Ty (Scope (Pos, Ty) Var)  
+  | ClosFix Env Name Ty Name Ty (Scope2 (Pos, Ty) Var)
   deriving(Show)
 
 data Frame = 
@@ -41,8 +41,8 @@ seek (V _ (Global x)) e k      = do
     Nothing  -> failFD4 $ "Error de ejecución: variable no declarada: " ++ ppName x 
     (Just t) -> seek t e k
 seek (Lang.Const _ n) e k      = destroy (CEK.Const n) k
-seek (Lam _ x _ s) e k         = destroy (ClosFun e x s) k
-seek (Fix _ f _ x _ s) e k     = destroy (ClosFix e f x s) k
+seek (Lam _ x t s) e k         = destroy (ClosFun e x t s) k
+seek (Fix _ f fty x xty s) e k     = destroy (ClosFix e f fty x xty s) k
 seek (Let _ x _ t s) e k       = seek t e ((FLet e x s):k)
 
 
@@ -72,7 +72,7 @@ destroy v ((FArg e t):k) =
     _       -> seek t e ((FFun v):k) 
 destroy v ((FFun c):k) =
   case c of 
-    ClosFun e x (Sc1 t)   -> seek t (v:e) k 
-    ClosFix e f x (Sc2 t) -> seek t (c:v:e) k 
+    ClosFun e x _ (Sc1 t)   -> seek t (v:e) k 
+    ClosFix e f _ x _ (Sc2 t) -> seek t (c:v:e) k 
     _                     -> abort "Error de tipo en runtime! : Operación inválida"
 destroy v (c:k) = abort "Error de tipo en runtime! : Operación inválida"

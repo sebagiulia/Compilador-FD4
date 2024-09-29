@@ -131,8 +131,8 @@ evalDecl (Decl p b x ty l e) = do
 
 val2term :: (Pos, Ty) -> Val -> TTerm
 val2term p (CEK.Const n) = Lang.Const p n
-val2term p (ClosFun e x s) = undefined--Lam p x _ s 
-val2term p (ClosFix e f x s) = undefined--Fix p f _ x _ s 
+val2term p (ClosFun e x t s) = Lam p x t s
+val2term p (ClosFix e f fty x xty s) = Fix p f fty x xty s 
 
 handleDecl ::  MonadFD4 m => Decl STerm -> m ()
 handleDecl d = do
