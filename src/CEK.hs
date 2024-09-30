@@ -75,4 +75,5 @@ destroy v ((FFun c):k) =
     ClosFun e x _ (Sc1 t)   -> seek t (v:e) k 
     ClosFix e f _ x _ (Sc2 t) -> seek t (c:v:e) k 
     _                     -> abort "Error de tipo en runtime! : Operación inválida"
+destroy v ((FLet e x (Sc1 t)):k) = seek t (v:e) k 
 destroy v (c:k) = abort "Error de tipo en runtime! : Operación inválida"
