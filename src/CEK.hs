@@ -59,7 +59,7 @@ destroy v ((FBinaryOpI e op t):k) =
     _           -> abort "Error de tipo en runtime! : FBinaryOpI"
 destroy v ((FBinaryOpD op (CEK.Const m)):k) = 
   case v of 
-    CEK.Const n -> destroy (CEK.Const (semOp op n m)) k
+    CEK.Const n -> destroy (CEK.Const (semOp op m n)) k
     _       -> abort "Error de tipo en runtime! : FBinaryOpD"
 destroy v ((FIfz e t1 t2):k) =
   case v of 
@@ -73,7 +73,7 @@ destroy v ((FArg e t):k) =
 destroy v ((FFun c):k) =
   case c of 
     ClosFun e x _ (Sc1 t)   -> seek t (v:e) k 
-    ClosFix e f _ x _ (Sc2 t) -> seek t (c:v:e) k 
+    ClosFix e f _ x _ (Sc2 t) -> seek t (v:c:e) k 
     _                     -> abort "Error de tipo en runtime! : Operación inválida"
 destroy v ((FLet e x (Sc1 t)):k) = seek t (v:e) k 
 destroy v (c:k) = abort "Error de tipo en runtime! : Operación inválida"
