@@ -51,7 +51,7 @@ destroy v [] = return v
 destroy v ((FPrint str):k) = 
   case v of 
     CEK.Const (CNat n) -> do printFD4 (str++show n)
-                             return v
+                             destroy v k
     _           -> abort "Error de tipo en runtime! : FPrint"
 destroy v ((FBinaryOpI e op t):k) = 
   case v of 
