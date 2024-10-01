@@ -46,7 +46,7 @@ parseMode :: Parser (Mode,Bool)
 parseMode = (,) <$>
       (flag' Typecheck ( long "typecheck" <> short 't' <> help "Chequear tipos e imprimir el término")
       <|> flag Interactive Interactive ( long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
-      <|> flag InteractiveCEK InteractiveCEK ( long "cek" <> short 'k' <> help "Ejecutar en maquina abstracta")
+      <|> flag InteractiveCEK InteractiveCEK ( long "interactiveCEK" <> short 'k' <> help "Ejecutar en maquina abstracta")
       <|> flag Eval        Eval        (long "eval" <> short 'e' <> help "Evaluar programa")
       )
    <*> pure False
@@ -127,11 +127,6 @@ evalDecl :: MonadFD4 m => Decl TTerm -> m (Decl TTerm)
 evalDecl (Decl p b x ty l e) = do
     e' <- eval e
     return (Decl p b x ty l e')
-
-val2term :: (Pos, Ty) -> Val -> TTerm
-val2term p (VConst n) = Lang.Const p n
-val2term p (ClosFun e x t s) = Lam p x t s
-val2term p (ClosFix e f fty x xty s) = Fix p f fty x xty s 
 
 handleDecl ::  MonadFD4 m => Decl STerm -> m ()
 handleDecl d = do
