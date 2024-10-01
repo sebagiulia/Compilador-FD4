@@ -45,9 +45,10 @@ prompt = "FD4> "
 parseMode :: Parser (Mode,Bool)
 parseMode = (,) <$>
       (flag' Typecheck ( long "typecheck" <> short 't' <> help "Chequear tipos e imprimir el término")
-      <|> flag Interactive Interactive ( long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
-      <|> flag InteractiveCEK InteractiveCEK ( long "interactiveCEK" <> short 'k' <> help "Ejecutar en maquina abstracta")
-      <|> flag Eval        Eval        (long "eval" <> short 'e' <> help "Evaluar programa")
+      <|> flag Interactive    Interactive    ( long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
+      <|> flag InteractiveCEK InteractiveCEK ( long "interactiveCEK" <> short 'c' <> help "Ejecutar de forma interactiva en maquina abstracta")
+      <|> flag CEK            CEK            ( long "cek" <> short 'k' <> help "Ejecutar en maquina abstracta")
+      <|> flag Eval           Eval           ( long "eval" <> short 'e' <> help "Evaluar programa")
       )
    <*> pure False
 
@@ -133,25 +134,28 @@ handleDecl d = do
         m <- getMode
         case m of
           Interactive -> do
-              (Decl p b x ty l tt) <- typecheckDecl d
-              te <- eval tt
-              addDecl (Decl p b x ty l te)
+            (Decl p b x ty l tt) <- typecheckDecl d
+            te <- eval tt
+            addDecl (Decl p b x ty l te)
           InteractiveCEK -> do
-              (Decl p b x ty l tt) <- typecheckDecl d
-              v <- seek tt [] []
-              addDecl (Decl p b x ty l (val2term (getInfo tt) v))    
+            (Decl p b x ty l tt) <- typecheckDecl d
+            v <- seek tt [] []
+            addDecl (Decl p b x ty l (val2term (getInfo tt) v))  
+          CEK -> do
+            (Decl p b x ty l tt) <- typecheckDecl d
+            v <- seek tt [] []
+            addDecl (Decl p b x ty l (val2term (getInfo tt) v))    
           Typecheck -> do
-              f <- getLastFile
-              printFD4 ("Chequeando tipos de "++f)
-              td <- typecheckDecl d
-              addDecl td
-              ppterm <- ppDecl td
-              printFD4 ppterm
+            f <- getLastFile
+            printFD4 ("Chequeando tipos de "++f)
+            td <- typecheckDecl d
+            addDecl td
+            ppterm <- ppDecl td
+            printFD4 ppterm
           Eval -> do
-              td <- typecheckDecl d
-              ed <- evalDecl td
-              addDecl ed
-
+            td <- typecheckDecl d
+            ed <- evalDecl td
+            addDecl ed
       where
         typecheckDecl :: MonadFD4 m => Decl STerm -> m (Decl TTerm)
         typecheckDecl = tcDecl . elabDecl
@@ -251,6 +255,11 @@ handleTerm t = do
              let te = val2term (getInfo tt) v 
              ppte <- pp te
              printFD4 (ppte ++ " : " ++ ppTy (getTy tt))
+           CEK -> do 
+             v <- seek tt [] []
+             let te = val2term (getInfo tt) v 
+             ppte <- pp te
+             printFD4 (ppte ++ " : " ++ ppTy (getTy tt))  
            _ -> do 
              te <- eval tt
              ppte <- pp te
