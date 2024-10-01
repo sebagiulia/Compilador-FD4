@@ -47,8 +47,8 @@ seek (Let _ x _ t s) e k       = seek t e ((FLet e x s):k)
 
 
 destroy :: MonadFD4 m => Val -> Kont -> m Val
-destroy (ClosFun e x xty (Sc1 t)) []       = return $ ClosFun [] x xty (Sc1 (replaceBounds e t))       -- Sustituye las variables ya aplicadas si las hay
-destroy (ClosFix e f fty x xty (Sc2 t)) [] = return $ ClosFix [] f fty x xty (Sc2 (replaceBounds e t)) -- Sustituye las variables ya aplicadas si las hay
+destroy (ClosFun e x xty (Sc1 t)) []       = return $ ClosFun [] x xty (Sc1 (replaceBounds (length e) e t))       -- Sustituye las variables ya aplicadas si las hay
+destroy (ClosFix e f fty x xty (Sc2 t)) [] = return $ ClosFix [] f fty x xty (Sc2 (replaceBounds ((length e) + 1) e t)) -- Sustituye las variables ya aplicadas si las hay
 destroy v [] = return v
 destroy v ((FPrint str):k) = 
   case v of 
@@ -80,24 +80,23 @@ destroy v ((FFun c):k) =
 destroy v ((FLet e x (Sc1 t)):k) = seek t (v:e) k 
 destroy v (c:k) = abort "Error de tipo en runtime! : Operación inválida"
 
-replaceBound :: Env -> Var -> Either Val Var
-replaceBound e (Bound i) = let l = length e in
-                           if l > 0 && i >= l then Left (e!!(i - l)) else Right (Bound i)       
-replaceBound e var = Right var
+replaceBound :: Int -> Env -> Var -> Either Val Var
+replaceBound pos e (Bound i) = if pos > 0 && pos - i < (length e) then Left (e!!(pos - i)) else Right (Bound i)       
+replaceBound _ _ var = Right var
                            
-replaceBounds :: Env -> TTerm -> TTerm
-replaceBounds _ t@(Const i c)                = t
-replaceBounds e (Lam i x xty (Sc1 t))        = Lam i x xty (Sc1 (replaceBounds e t))
-replaceBounds e (App i t1 t2)                = App i (replaceBounds e t1) (replaceBounds e t2)
-replaceBounds e (Print i st t)               = Print i st (replaceBounds e t)
-replaceBounds e (BinaryOp i op t1 t2)        = BinaryOp i op (replaceBounds e t1) (replaceBounds e t2)
-replaceBounds e (Fix i f fty x xty (Sc2 t2)) = Fix i f fty x xty (Sc2 (replaceBounds e t2))
-replaceBounds e (IfZ i c t1 t2)              = IfZ i (replaceBounds e c) (replaceBounds e t1) (replaceBounds e t2)
-replaceBounds e (Let i x ty t1 (Sc1 t2))     = Let i x ty (replaceBounds e t1) (Sc1 (replaceBounds e t2))
-replaceBounds e (V i var) =
-  case replaceBound e var of
-    Right v -> (V i v)
-    Left val  -> val2term i val 
+replaceBounds :: Int -> Env -> TTerm -> TTerm
+replaceBounds pos _ t@(Const i c)                = t
+replaceBounds pos e (Lam i x xty (Sc1 t))        = Lam i x xty (Sc1 (replaceBounds (pos+1) e t))
+replaceBounds pos e (App i t1 t2)                = App i (replaceBounds pos e t1) (replaceBounds pos e t2)
+replaceBounds pos e (Print i st t)               = Print i st (replaceBounds pos e t)
+replaceBounds pos e (BinaryOp i op t1 t2)        = BinaryOp i op (replaceBounds pos e t1) (replaceBounds pos e t2)
+replaceBounds pos e (Fix i f fty x xty (Sc2 t2)) = Fix i f fty x xty (Sc2 (replaceBounds (pos+2) e t2))
+replaceBounds pos e (IfZ i c t1 t2)              = IfZ i (replaceBounds pos e c) (replaceBounds pos e t1) (replaceBounds pos e t2)
+replaceBounds pos e (Let i x ty t1 (Sc1 t2))     = Let i x ty (replaceBounds pos e t1) (Sc1 (replaceBounds (pos+1) e t2))
+replaceBounds pos e (V i var) =
+  case replaceBound pos e var of
+    Right v  -> V i v
+    Left val -> val2term i val 
 
 val2term :: (Pos, Ty) -> Val -> TTerm
 val2term p (VConst n) = Const p n
@@ -106,12 +105,12 @@ val2term p (ClosFix e f fty x xty s2) = Fix p f fty x xty s2
 
 {-
 
-<  (fun x. (fun y. x + y)) 1  , O            , O >
-<  fun x. (fun y. x + y)      , O            , O.[] 1 >
-<< cfun(O, x, fun y. x + y)                  , O.[] 1 >>
-<  1                          , O            , cfun(O, x, fun y. x + y) [] >
-<< 1                                         , cfun(O, x, fun y. x + y) [] >>
-<  fun y. x + y               , (x->1)       , O >
-<< cfun((x->1), y, x + y)                    , O >>
-
+<  (fun x. S (fun y. S (fun z. S ((Bound 2) + (Bound 1) + (Bound 0))))  1  , O            , O >
+<  fun x. S (fun y. S (fun z. S ((Bound 2) + (Bound 1) + (Bound 0)))       , O            , O.[] 1 >
+<< cfun(O, x, S (fun y. S (fun z. S ((Bound 2) + (Bound 1) + (Bound 0)))                  , O.[] 1 >>
+<  1                                                                       , O            , cfun( O, x, S (fun y. S ((Bound 1) + (Bound 0))) ) [] >
+<< 1                                                                                      , cfun( O, x, S (fun y. S ((Bound 1) + (Bound 0))) ) [] >>
+<  fun y. S (fun z. S ((Bound 2) + (Bound 1) + (Bound 0)))                                , 1:O          , O >
+<< cfun(1:O, y, S (fun z. S ((Bound 2) + (Bound 1) + (Bound 0))) )                                                    , O >>
+  
 -}
