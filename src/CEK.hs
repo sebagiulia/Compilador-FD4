@@ -42,11 +42,13 @@ seek (V _ (Global x)) e k      = do
     (Just t) -> seek t e k
 seek (Lang.Const _ n) e k      = destroy (CEK.Const n) k
 seek (Lam _ x t s) e k         = destroy (ClosFun e x t s) k
-seek (Fix _ f fty x xty s) e k     = destroy (ClosFix e f fty x xty s) k
+seek (Fix _ f fty x xty s) e k = destroy (ClosFix e f fty x xty s) k
 seek (Let _ x _ t s) e k       = seek t e ((FLet e x s):k)
 
 
 destroy :: MonadFD4 m => Val -> Kont -> m Val
+destroy (ClosFun e x t (Sc1 t')) [] = return $ ClosFun [] x t (Sc1 (replaceBounds e t')) -- Sustituye las variables ya aplicadas si las hay
+destroy (ClosFix e f fty x xty (Sc2 t')) [] = return $ ClosFix [] f fty x xty (Sc2 (replaceBounds e t')) -- Sustituye las variables ya aplicadas si las hay
 destroy v [] = return v
 destroy v ((FPrint str):k) = 
   case v of 
@@ -77,3 +79,28 @@ destroy v ((FFun c):k) =
     _                     -> abort "Error de tipo en runtime! : Operación inválida"
 destroy v ((FLet e x (Sc1 t)):k) = seek t (v:e) k 
 destroy v (c:k) = abort "Error de tipo en runtime! : Operación inválida"
+
+replaceBound :: Env -> Var -> Either Val Var
+replaceBound e (Bound i) = let l = length e
+                           in if l > 0 && i >= l then Left (e!!(i - l)) else Right (Bound i)       
+replaceBound e var = Right var
+                           
+replaceBounds :: Env -> TTerm -> TTerm
+replaceBounds e t = case t of
+  Lang.Const i c             -> (Lang.Const i c)
+  Lam i x ty (Sc1 t')         -> (Lam i x ty (Sc1 (replaceBounds e t')))
+  App i t1 t2                -> (App i (replaceBounds e t1) (replaceBounds e t2))
+  Print i st t'              -> (Print i st (replaceBounds e t'))
+  BinaryOp i op t1 t2        -> (BinaryOp i op (replaceBounds e t1) (replaceBounds e t2))  
+  Fix i f fty x xty (Sc2 t2) -> (Fix i f fty x xty (Sc2 (replaceBounds e t2)))
+  IfZ i c t1 t2              -> (IfZ i (replaceBounds e c) (replaceBounds e t1)(replaceBounds e t2)) 
+  Let i x ty t1 (Sc1 t2)           -> (Let i x ty (replaceBounds e t1) (Sc1 (replaceBounds e t2)))
+  V i var                    -> case replaceBound e var of
+                                 Right v -> (V i v)
+                                 Left val  -> val2term i val 
+
+
+val2term :: (Pos, Ty) -> Val -> TTerm
+val2term p (CEK.Const n) = Lang.Const p n
+val2term p (ClosFun e x t s1) = Lam p x t s1 
+val2term p (ClosFix e f fty x xty s2) = Fix p f fty x xty s2 
