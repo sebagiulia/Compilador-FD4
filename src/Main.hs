@@ -39,8 +39,6 @@ import TypeChecker ( tc, tcDecl )
 prompt :: String
 prompt = "FD4> "
 
-
-
 -- | Parser de banderas
 parseMode :: Parser (Mode,Bool)
 parseMode = (,) <$>
@@ -131,34 +129,34 @@ evalDecl (Decl p b x ty l e) = do
 
 handleDecl ::  MonadFD4 m => Decl STerm -> m ()
 handleDecl d = do
-        m <- getMode
-        case m of
-          Interactive -> do
-            (Decl p b x ty l tt) <- typecheckDecl d
-            te <- eval tt
-            addDecl (Decl p b x ty l te)
-          InteractiveCEK -> do
-            (Decl p b x ty l tt) <- typecheckDecl d
-            v <- seek tt [] []
-            addDecl (Decl p b x ty l (val2term (getInfo tt) v))  
-          CEK -> do
-            (Decl p b x ty l tt) <- typecheckDecl d
-            v <- seek tt [] []
-            addDecl (Decl p b x ty l (val2term (getInfo tt) v))    
-          Typecheck -> do
-            f <- getLastFile
-            printFD4 ("Chequeando tipos de "++f)
-            td <- typecheckDecl d
-            addDecl td
-            ppterm <- ppDecl td
-            printFD4 ppterm
-          Eval -> do
-            td <- typecheckDecl d
-            ed <- evalDecl td
-            addDecl ed
-      where
-        typecheckDecl :: MonadFD4 m => Decl STerm -> m (Decl TTerm)
-        typecheckDecl = tcDecl . elabDecl
+    m <- getMode
+    case m of
+      Interactive -> do
+        (Decl p b x ty l tt) <- typecheckDecl d
+        te <- eval tt
+        addDecl (Decl p b x ty l te)
+      InteractiveCEK -> do
+        (Decl p b x ty l tt) <- typecheckDecl d
+        v <- seek tt [] []
+        addDecl (Decl p b x ty l (val2term (getInfo tt) v))  
+      CEK -> do
+        (Decl p b x ty l tt) <- typecheckDecl d
+        v <- seek tt [] []
+        addDecl (Decl p b x ty l (val2term (getInfo tt) v))    
+      Typecheck -> do
+        f <- getLastFile
+        printFD4 ("Chequeando tipos de "++f)
+        td <- typecheckDecl d
+        addDecl td
+        ppterm <- ppDecl td
+        printFD4 ppterm
+      Eval -> do
+        td <- typecheckDecl d
+        ed <- evalDecl td
+        addDecl ed
+  where
+    typecheckDecl :: MonadFD4 m => Decl STerm -> m (Decl TTerm)
+    typecheckDecl = tcDecl . elabDecl
 
 
 data Command = Compile CompileForm
@@ -197,14 +195,13 @@ interpretCommand x
 
 commands :: [InteractiveCommand]
 commands
-  =  [ Cmd [":browse"]      ""        (const Browse) "Ver los nombres en scope",
-       Cmd [":load"]        "<file>"  (Compile . CompileFile)
-                                                     "Cargar un programa desde un archivo",
-       Cmd [":print"]       "<exp>"   PPrint          "Imprime un término y sus ASTs sin evaluarlo",
-       Cmd [":reload"]      ""        (const Reload)         "Vuelve a cargar el último archivo cargado",
-       Cmd [":type"]        "<exp>"   Type           "Chequea el tipo de una expresión",
-       Cmd [":quit",":Q"]        ""        (const Quit)   "Salir del intérprete",
-       Cmd [":help",":?"]   ""        (const Help)   "Mostrar esta lista de comandos" ]
+  =  [ Cmd [":browse"]      ""        (const Browse)          "Ver los nombres en scope",
+       Cmd [":load"]        "<file>"  (Compile . CompileFile) "Cargar un programa desde un archivo",
+       Cmd [":print"]       "<exp>"   PPrint                  "Imprime un término y sus ASTs sin evaluarlo",
+       Cmd [":reload"]      ""        (const Reload)          "Vuelve a cargar el último archivo cargado",
+       Cmd [":type"]        "<exp>"   Type                    "Chequea el tipo de una expresión",
+       Cmd [":quit",":Q"]   ""        (const Quit)            "Salir del intérprete",
+       Cmd [":help",":?"]   ""        (const Help)            "Mostrar esta lista de comandos" ]
 
 helpTxt :: [InteractiveCommand] -> String
 helpTxt cs
