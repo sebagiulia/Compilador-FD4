@@ -70,12 +70,12 @@ data Decl a = Decl
   }
   deriving (Show, Functor)
 
-data DeclTy = DeclTy
+data DeclTy a = DeclTy
   { declPosType  :: Pos
   , declNameType :: Name
-  , declTypeT :: STy
+  , declTypeT :: a
   }
-  deriving (Show)
+  deriving (Show, Functor)
 
 
 -- | AST de los términos. 

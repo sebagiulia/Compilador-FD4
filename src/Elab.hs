@@ -17,17 +17,17 @@ import Subst
 
 -- | 'elab' transforma variables ligadas en índices de de Bruijn
 -- en un término dado. 
-elab :: STerm -> Term
+elab :: MonadFD4 m => STerm -> m Term
 elab = elab' []
 
-elab' :: [Name] -> STerm -> Term
+elab' :: MonadFD4 m => [Name] -> STerm -> m Term
 elab' env (SV p v) =
   -- Tenemos que ver si la variable es Global o es un nombre local
   -- En env llevamos la lista de nombres locales.
   if v `elem` env 
-    then  V p (Free v)
-    else V p (Global v)
-elab' _ (SConst p c) = Const p c
+    then return $ V p (Free v)
+    else return $ V p (Global v)
+elab' _ (SConst p c) = return $ Const p c
 elab' env (SLam p [(v, ty)] t) = Lam p v ty (close v (elab' (v:env) t))
 elab' env (SLam p ((v, ty):args) t) = Lam p v ty (close v (elab' (v:env) (SLam p args t)))
 elab' env (SLam p [] t) = undefined -- no entra nunca
@@ -53,5 +53,24 @@ elabDecl d@(Decl _ _ _ _ [] _) = fmap elab d
 elabDecl d@(Decl p False f fty args t) = fmap elab (Decl p True f (foldr typeConverter fty args) [] (SLam p args t)) 
 elabDecl d@(Decl p True f fty args t) = fmap elab (Decl p True f (foldr typeConverter fty args) [] (SFix p (f,(foldr typeConverter fty args)) args t)) 
 
+elabDeclTy :: MonadFD4 m => DeclTy STy -> m DeclTy Ty
+elabDeclTy d = undefined
+
+
+elabTy :: MonadFD4 m => STy -> m Ty
+elabTy SNatTy = return NatTy
+elabTy (SFunTy a b) = do 
+      sa <- elabTy a
+      sb <- elabTy b
+      return $ FunTy sa sb 
+elabTy (SVarTy n) = 
+
 typeConverter :: (Name, Ty) -> Ty -> Ty
 typeConverter (_, t) tys = FunTy t tys
+
+
+{-
+
+SLet x: SNat -> HOLA -> SNat = f in f 5 6 7
+
+-}
