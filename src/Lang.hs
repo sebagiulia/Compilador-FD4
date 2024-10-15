@@ -41,11 +41,17 @@ data STm info ty var =
 data Ty =
       NatTy
     | FunTy Ty Ty
-    deriving (Show,Eq, Ord)
+    deriving (Show, Eq, Ord)
+
+data STy = 
+      SNatTy
+    | SFunTy STy STy
+    | SVarTy Name 
+    deriving (Show, Eq, Ord)
 
 type Name = String
 
-type STerm = STm Pos Ty Name -- ^ 'STm' tiene 'Name's como variables ligadas y libres y globales, guarda posición  
+type STerm = STm Pos STy Name -- ^ 'STm' tiene 'Name's como variables ligadas y libres y globales, guarda posición  
 
 newtype Const = CNat Int
   deriving Show
@@ -58,11 +64,19 @@ data Decl a = Decl
   { declPos  :: Pos
   , isRec    :: Bool
   , declName :: Name
-  , declType :: Ty
-  , declArgs :: [(Name, Ty)]
+  , declType :: STy
+  , declArgs :: [(Name, STy)]
   , declBody :: a
   }
   deriving (Show, Functor)
+
+data DeclTy = DeclTy
+  { declPosType  :: Pos
+  , declNameType :: Name
+  , declTypeT :: STy
+  }
+  deriving (Show)
+
 
 -- | AST de los términos. 
 --   - info es información extra que puede llevar cada nodo. 
@@ -147,3 +161,4 @@ freeVars tm = nubSort $ go tm [] where
   go (IfZ _ c t e             ) xs = go c $ go t $ go e xs
   go (Const _ _               ) xs = xs
   go (Let _ _ _ e (Sc1 t)     ) xs = go e (go t xs)
+

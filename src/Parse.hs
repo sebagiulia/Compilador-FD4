@@ -81,18 +81,21 @@ getPos :: P Pos
 getPos = do pos <- getPosition
             return $ Pos (sourceLine pos) (sourceColumn pos)
 
-tyatom :: P Ty
-tyatom = (reserved "Nat" >> return NatTy)
-         <|> parens typeP
+tyatom :: P STy
+tyatom = try (reserved "Nat" >> return SNatTy)
+         <|> (do
+          n <- var
+          return (SVarTy n) 
+         <|> parens typeP)
 
-typeP :: P Ty
+typeP :: P STy
 typeP = try (do 
           x <- tyatom
           reservedOp "->"
           y <- typeP
-          return (FunTy x y))
+          return (SFunTy x y))
       <|> tyatom
-          
+
 const :: P Const
 const = CNat <$> num
 
@@ -120,19 +123,19 @@ atom =     (flip SConst <$> const <*> getPos)
        <|> printOp
 
 -- parsea un par (variable : tipo)
-binding :: P (Name, Ty)
+binding :: P (Name, STy)
 binding = do v <- var
              reservedOp ":"
              ty <- typeP
              return (v, ty)
 
-multibinders :: P [(Name, Ty)]
+multibinders :: P [(Name, STy)]
 multibinders = do vs <- many var
                   reservedOp ":"
                   ty <- typeP
                   return (map (\v -> (v, ty)) vs)
 
-binders :: P [(Name, Ty)]
+binders :: P [(Name, STy)]
 binders = do l <- many (parens multibinders)
              return (concat l)
 
@@ -222,7 +225,7 @@ decl = do
      (v, ty) <- binding <|> parens binding 
      reservedOp "="
      t <- expr
-     return (Decl i False v ty [] t)
+     return $ Decl i False v ty [] t
 
 declfun :: P (Decl STerm)
 declfun = do     
@@ -235,7 +238,7 @@ declfun = do
           fty <- typeP
           reservedOp "="
           t <- expr
-          return (Decl i False f fty args t))
+          return $ Decl i False f fty args t)
 
 declrec :: Pos -> P (Decl STerm)
 declrec i = do
@@ -248,11 +251,18 @@ declrec i = do
      t <- expr
      return $ Decl i True f fty args t
 
-
+declty :: P DeclTy
+declty = do 
+      i <- getPos
+      reserved "type"
+      n <- var
+      reservedOp "="
+      t <- typeP
+      return $ DeclTy i n t
 
 -- | Parser de programas (listas de declaraciones) 
-program :: P [Decl STerm]
-program = many (try decl <|> declfun)
+program :: P [Either DeclTy (Decl STerm)]
+program = many $ try (Left <$> declty) <|> try (Right <$> (decl <|> declfun))
 
 -- | Parsea una declaración a un término
 -- Útil para las sesiones interactivas
