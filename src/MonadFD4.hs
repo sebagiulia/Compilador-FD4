@@ -90,6 +90,9 @@ getLastFile = gets lfile
 addDecl :: MonadFD4 m => Decl TTerm -> m ()
 addDecl d = modify (\s -> s { glb = d : glb s, cantDecl = cantDecl s + 1 })
 
+addDeclTy :: MonadFD4 m => DeclTy Ty -> m ()
+addDeclTy d = modify (\s -> s { glbTy = d : glbTy s, cantDeclTy = cantDeclTy s + 1 })
+
 eraseLastFileDecls :: MonadFD4 m => m ()
 eraseLastFileDecls = do
       s <- get

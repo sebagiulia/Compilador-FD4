@@ -114,18 +114,28 @@ compileFile f = do
     setInter False
     when i $ printFD4 ("Abriendo "++f++"...")
     decls <- loadFile f
-    mapM_ handleDecl decls
+    mapM_ handleDecl' decls
     setInter i
+
+handleDecl' :: Either DeclTy (Decl STerm) -> m ()
+handleDecl' d = case d of   
+                 Left t -> handleDeclTy t
+                 Right dec -> handleDecl dec
 
 parseIO ::  MonadFD4 m => String -> P a -> String -> m a
 parseIO filename p x = case runP p x filename of
-                  Left e  -> throwError (ParseErr e)
-                  Right r -> return r
+                        Left e  -> throwError (ParseErr e)
+                        Right r -> return r
 
 evalDecl :: MonadFD4 m => Decl TTerm -> m (Decl TTerm)
 evalDecl (Decl p b x ty l e) = do
     e' <- eval e
     return (Decl p b x ty l e')
+
+handleDeclTy ::  MonadFD4 m => DeclTy STy -> m ()
+handleDeclTy t = do
+  t' <- elabDeclTy t
+  addDeclTy t'
 
 handleDecl ::  MonadFD4 m => Decl STerm -> m ()
 handleDecl d = do
