@@ -20,6 +20,7 @@ module MonadFD4 (
   FD4,
   runFD4,
   lookupDecl,
+  lookupType,
   lookupTy,
   printFD4,
   setLastFile,

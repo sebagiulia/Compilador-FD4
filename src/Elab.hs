@@ -16,6 +16,7 @@ import Lang
 import Subst
 import Common
 import MonadFD4
+import PPrint (ppName)
 
 -- | 'elab' transforma variables ligadas en índices de de Bruijn
 -- en un término dado. 
@@ -103,11 +104,20 @@ elabDecl d@(Decl p r n t [] b) = do
     return $ Decl p r n te [] be
 elabDecl d@(Decl p False f fty args t) = do 
     ftye <- elabTy $ foldr stypeConverter fty args
-    te <- elab (Decl p True f ftye [] (SLam p args t)) 
-    return $ Decl p False f ftye args te
+    te <- elab (SLam p args t)
+    args' <- fmapArgs args
+    return $ Decl p False f ftye args' te
 elabDecl d@(Decl p True f fty args t) = do
-    ftye <- elabTy $ foldr typeConverter fty args
-    fmap elab (Decl p True f ftye [] (SFix p (f,(foldr stypeConverter fty args)) args t)) 
+    ftye <- elabTy $ foldr stypeConverter fty args
+    args' <- fmapArgs args
+    te <- elab (SFix p (f,(foldr stypeConverter fty args)) args t)
+    return (Decl p True f ftye args' te) 
+
+fmapArgs :: MonadFD4 m => [(Name, STy)] -> m [(Name, Ty)]
+fmapArgs [] = return []
+fmapArgs ((n,st):xs) = do t <- elabTy st
+                          ts <- fmapArgs xs
+                          return ((n,t):ts)
 
 elabDeclTy :: MonadFD4 m => DeclTy STy -> m (DeclTy Ty)
 elabDeclTy (DeclTy p n t) = do
@@ -131,9 +141,3 @@ typeConverter (_, t) tys = FunTy t tys
 
 stypeConverter :: (Name, STy) -> STy -> STy
 stypeConverter (_, t) tys = SFunTy t tys
-
-{-
-
-SLet x: SNat -> HOLA -> SNat = f in f 5 6 7
-
--}
