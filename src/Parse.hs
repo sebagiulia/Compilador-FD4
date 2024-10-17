@@ -218,7 +218,7 @@ tm :: P STerm
 tm = app <|> lam <|> ifz <|> printOp <|> fix <|> try letexp <|> letfunexp 
 
 -- | Parser de declaraciones
-decl :: P (Decl STerm)
+decl :: P (Decl STerm STy)
 decl = do 
      i <- getPos
      reserved "let"
@@ -227,7 +227,7 @@ decl = do
      t <- expr
      return $ Decl i False v ty [] t
 
-declfun :: P (Decl STerm)
+declfun :: P (Decl STerm STy)
 declfun = do     
      i <- getPos
      reserved "let"
@@ -240,7 +240,7 @@ declfun = do
           t <- expr
           return $ Decl i False f fty args t)
 
-declrec :: Pos -> P (Decl STerm)
+declrec :: Pos -> P (Decl STerm STy)
 declrec i = do
      reserved "rec"
      f <- var
@@ -251,7 +251,7 @@ declrec i = do
      t <- expr
      return $ Decl i True f fty args t
 
-declty :: P DeclTy
+declty :: P (DeclTy STy) 
 declty = do 
       i <- getPos
       reserved "type"
@@ -261,12 +261,12 @@ declty = do
       return $ DeclTy i n t
 
 -- | Parser de programas (listas de declaraciones) 
-program :: P [Either DeclTy (Decl STerm)]
+program :: P [Either (DeclTy STy) (Decl STerm STy)]
 program = many $ try (Left <$> declty) <|> try (Right <$> (decl <|> declfun))
 
 -- | Parsea una declaración a un término
 -- Útil para las sesiones interactivas
-declOrTm :: P (Either (Decl STerm) STerm)
+declOrTm :: P (Either (Decl STerm STy) STerm)
 declOrTm =  try (Right <$> expr) <|> try (Left <$> (try decl <|> declfun))
 
 -- Corre un parser, chequeando que se pueda consumir toda la entrada

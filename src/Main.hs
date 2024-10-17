@@ -98,7 +98,7 @@ repl args = do
                        b <- lift $ catchErrors $ handleCommand c
                        maybe loop (`when` loop) b
 
-loadFile ::  MonadFD4 m => FilePath -> m [Decl STerm]
+loadFile ::  MonadFD4 m => FilePath -> m [Decl STerm STy]
 loadFile f = do
     let filename = reverse(dropWhile isSpace (reverse f))
     x <- liftIO $ catch (readFile filename)
@@ -117,7 +117,7 @@ compileFile f = do
     mapM_ handleDecl' decls
     setInter i
 
-handleDecl' :: Either DeclTy (Decl STerm) -> m ()
+handleDecl' :: Either DeclTy (Decl STerm STy) -> m ()
 handleDecl' d = case d of   
                  Left t -> handleDeclTy t
                  Right dec -> handleDecl dec
@@ -127,7 +127,7 @@ parseIO filename p x = case runP p x filename of
                         Left e  -> throwError (ParseErr e)
                         Right r -> return r
 
-evalDecl :: MonadFD4 m => Decl TTerm -> m (Decl TTerm)
+evalDecl :: MonadFD4 m => Decl TTerm Ty -> m (Decl TTerm Ty)
 evalDecl (Decl p b x ty l e) = do
     e' <- eval e
     return (Decl p b x ty l e')
@@ -137,7 +137,7 @@ handleDeclTy t = do
   t' <- elabDeclTy t
   addDeclTy t'
 
-handleDecl ::  MonadFD4 m => Decl STerm -> m ()
+handleDecl ::  MonadFD4 m => Decl STerm STy -> m ()
 handleDecl d = do
     m <- getMode
     case m of
@@ -165,8 +165,10 @@ handleDecl d = do
         ed <- evalDecl td
         addDecl ed
   where
-    typecheckDecl :: MonadFD4 m => Decl STerm -> m (Decl TTerm)
-    typecheckDecl = tcDecl . elabDecl
+    typecheckDecl :: MonadFD4 m => Decl STerm STy -> m (Decl TTerm Ty)
+    typecheckDecl = do 
+      de <- elabDecl
+      return $ tcDecl de
 
 
 data Command = Compile CompileForm

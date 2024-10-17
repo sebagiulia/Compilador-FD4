@@ -60,12 +60,12 @@ data BinaryOp = Add | Sub
   deriving Show
 
 -- | tipo de datos de declaraciones, parametrizado por el tipo del cuerpo de la declaración
-data Decl a = Decl
+data Decl a t = Decl
   { declPos  :: Pos
   , isRec    :: Bool
   , declName :: Name
-  , declType :: STy
-  , declArgs :: [(Name, STy)]
+  , declType :: t
+  , declArgs :: [(Name, t)]
   , declBody :: a
   }
   deriving (Show, Functor)
@@ -98,7 +98,7 @@ data Tm info var =
 type Term = Tm Pos Var       -- ^ 'Tm' con índices de De Bruijn como variables ligadas, y nombres para libres y globales, guarda posición
 type TTerm = Tm (Pos,Ty) Var -- ^ 'Tm' con índices de De Bruijn como variables ligadas, y nombres para libres y globales, guarda posición y tipo
 
-type Module = [Decl TTerm]
+type Module = [Decl TTerm Ty]
 data Var =
     Bound !Int
   | Free Name

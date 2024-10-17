@@ -14,6 +14,7 @@ module Elab ( elab, elabDecl) where
 
 import Lang
 import Subst
+import Common
 import MonadFD4
 
 -- | 'elab' transforma variables ligadas en índices de de Bruijn
@@ -86,34 +87,50 @@ elab' env (SLetFun p False (f, fty) args t1 t2) = do
     te1 <- elab' env (SLam p args t1)
     te2 <- elab' (f:env) t2
     let tc = close f te2
-    ftye <- elabTy fty
-    return $ Let p f (foldr typeConverter ftye args) te1 tc 
+    ftye <- elabTy (foldr stypeConverter fty args)
+    return $ Let p f ftye te1 tc 
 elab' env (SLetFun p True (f, fty) args t1 t2) = do 
     te2 <- elab' (f:env) t2
     let tc = close f te2
-    te1 <- elab' env (SFix p (f,foldr typeConverter fty args) args t1)
-    ftye <- elabTy fty
-    return $ Let p f (foldr typeConverter ftye args) te1 tc
+    te1 <- elab' env (SFix p (f,foldr stypeConverter fty args) args t1)
+    ftye <- elabTy (foldr stypeConverter fty args)
+    return $ Let p f ftye te1 tc
 
-elabDecl :: Decl STerm -> Decl Term
-elabDecl d@(Decl _ _ _ _ [] _) = fmap elab d
-elabDecl d@(Decl p False f fty args t) = fmap elab (Decl p True f (foldr typeConverter fty args) [] (SLam p args t)) 
-elabDecl d@(Decl p True f fty args t) = fmap elab (Decl p True f (foldr typeConverter fty args) [] (SFix p (f,(foldr typeConverter fty args)) args t)) 
+elabDecl :: MonadFD4 m => Decl STerm STy -> m (Decl Term Ty)
+elabDecl d@(Decl p r n t [] b) = do 
+    te <- elabTy t
+    be <- elab b
+    return $ Decl p r n te [] be
+elabDecl d@(Decl p False f fty args t) = do 
+    ftye <- elabTy $ foldr stypeConverter fty args
+    te <- elab (Decl p True f ftye [] (SLam p args t)) 
+    return $ Decl p False f ftye args te
+elabDecl d@(Decl p True f fty args t) = do
+    ftye <- elabTy $ foldr typeConverter fty args
+    fmap elab (Decl p True f ftye [] (SFix p (f,(foldr stypeConverter fty args)) args t)) 
 
-elabDeclTy :: MonadFD4 m => DeclTy STy -> m DeclTy Ty
-elabDeclTy d = undefined
+elabDeclTy :: MonadFD4 m => DeclTy STy -> m (DeclTy Ty)
+elabDeclTy (DeclTy p n t) = do
+    te <- elabTy t
+    return $ DeclTy p n te 
 
 elabTy :: MonadFD4 m => STy -> m Ty
 elabTy SNatTy = return NatTy
 elabTy (SFunTy a b) = do 
-      sa <- elabTy a
-      sb <- elabTy b
-      return $ FunTy sa sb 
-elabTy (SVarTy n) = undefined
+    sa <- elabTy a
+    sb <- elabTy b
+    return $ FunTy sa sb 
+elabTy (SVarTy n) = do
+    ty <- lookupType n
+    case ty of
+        Nothing -> failFD4 $ "Tipo no declarado: " ++ ppName n
+        Just typ -> return typ
 
--- typeConverter :: (Name, Ty) -> Ty -> Ty
--- typeConverter (_, t) tys = FunTy t tys
+typeConverter :: (Name, Ty) -> Ty -> Ty
+typeConverter (_, t) tys = FunTy t tys
 
+stypeConverter :: (Name, STy) -> STy -> STy
+stypeConverter (_, t) tys = SFunTy t tys
 
 {-
 
