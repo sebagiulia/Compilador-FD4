@@ -262,7 +262,7 @@ declty = do
 
 -- | Parser de programas (listas de declaraciones) 
 program :: P [Either (DeclTy STy) (Decl STerm STy)]
-program = many $ try (Left <$> declty) <|> try (Right <$> (decl <|> declfun))
+program = many $ try (Left <$> declty) <|> Right <$> (try decl <|> declfun)
 
 -- | Parsea una declaración a un término
 -- Útil para las sesiones interactivas
