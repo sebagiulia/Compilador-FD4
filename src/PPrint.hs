@@ -16,7 +16,8 @@ module PPrint (
     pp,
     ppTy,
     ppName,
-    ppDecl
+    ppDecl,
+    ty2sty
     ) where
 
 import Lang
@@ -40,6 +41,11 @@ import MonadFD4 ( gets, MonadFD4 )
 import Global ( GlEnv(glb) )
 import Data.List
 import Data.Function
+
+ty2sty :: Ty -> STy
+ty2sty NatTy = SNatTy
+ty2sty (FunTy a b) = SFunTy (ty2sty a) (ty2sty b)
+
 
 freshen :: [Name] -> Name -> Name
 freshen ns n = let cands = n : map (\i -> n ++ show i) [0..]
@@ -67,14 +73,14 @@ openAll gp ns (Const p c) = SConst (gp p) c
 openAll gp ns (Lam p x xty t) =
   let x' = freshen ns x
       (vars, ns', t') = takeVars (Lam p x xty t) ns  
-  in SLam (gp p) vars (openAll gp ns' t')
+  in SLam (gp p) (map (\(n,ty) -> (n, ty2sty ty)) vars) (openAll gp ns' t')
 openAll gp ns (App p t u) = SApp (gp p) (openAll gp ns t) (openAll gp ns u)
 openAll gp ns (Fix p f fty x xty t) =
   let
     x' = freshen ns x
     f' = freshen (x':ns) f
     (vars, ns', t') = takeVars (open2 f' x' t) (f':x':ns)
-  in SFix (gp p) (f',fty) ((x', xty):vars) (openAll gp ns' t')
+  in SFix (gp p) (f', ty2sty fty) ((x', ty2sty xty):(map (\(n,tt) -> (n, ty2sty tt)) vars)) (openAll gp ns' t')
 openAll gp ns (IfZ p c t e) = SIfZ (gp p) (openAll gp ns c) (openAll gp ns t) (openAll gp ns e)
 openAll gp ns (Print p str t) = SApp (gp p) (SPrint (gp p) str) (openAll gp ns t)
 openAll gp ns (BinaryOp p op t u) = SBinaryOp (gp p) op (openAll gp ns t) (openAll gp ns u)
@@ -87,9 +93,9 @@ openAll gp ns (Let p v ty m n) =
             let x' = freshen ns' x
                 f' = freshen (x':ns') f
                 (vars', ns'', t'') = takeVars (open2 f' x' m') (f':x':ns') 
-            in SLetFun (gp p) True (v',ty) ((x',xty):vars') (openAll gp ns'' t'') (openAll gp (v':ns) (open v' n))
-          _ -> SLet (gp p) (v', ty) (openAll gp ns m) (openAll gp (v':ns) (open v' n))
-        else SLetFun (gp p) False (v',ty) vars (openAll gp ns' t') (openAll gp (v':ns) (open v' n))
+            in SLetFun (gp p) True (v',ty2sty ty) ((x',ty2sty xty):(map (\(nn,tt) -> (nn, ty2sty tt)) vars')) (openAll gp ns'' t'') (openAll gp (v':ns) (open v' n))
+          _ -> SLet (gp p) (v', ty2sty ty) (openAll gp ns m) (openAll gp (v':ns) (open v' n))
+        else SLetFun (gp p) False (v',ty2sty ty) (map (\(nn,tt) -> (nn, ty2sty tt)) vars) (openAll gp ns' t') (openAll gp (v':ns) (open v' n))
 
 --Colores
 constColor :: Doc AnsiStyle -> Doc AnsiStyle
@@ -116,13 +122,14 @@ ppName :: Name -> String
 ppName = id
 
 -- | Pretty printer para tipos (Doc)
-ty2doc :: Ty -> Doc AnsiStyle
-ty2doc NatTy     = typeColor (pretty "Nat")
-ty2doc (FunTy x@(FunTy _ _) y) = sep [parens (ty2doc x), typeOpColor (pretty "->"),ty2doc y]
-ty2doc (FunTy x y) = sep [ty2doc x, typeOpColor (pretty "->"),ty2doc y]
+ty2doc :: STy -> Doc AnsiStyle
+ty2doc SNatTy     = typeColor (pretty "Nat")
+ty2doc (SFunTy x@(SFunTy _ _) y) = sep [parens (ty2doc x), typeOpColor (pretty "->"),ty2doc y]
+ty2doc (SFunTy x y) = sep [ty2doc x, typeOpColor (pretty "->"),ty2doc y]
+ty2doc (SVarTy n) = typeColor (pretty n)
 
 -- | Pretty printer para tipos (String)
-ppTy :: Ty -> String
+ppTy :: STy -> String
 ppTy = render . ty2doc
 
 c2doc :: Const -> Doc AnsiStyle
@@ -214,7 +221,7 @@ t2doc at (SBinaryOp _ o a b) =
   parenIf at $
   t2doc True a <+> binary2doc o <+> t2doc True b
 
-binding2doc :: [(Name, Ty)] -> Doc AnsiStyle
+binding2doc :: [(Name, STy)] -> Doc AnsiStyle
 binding2doc xs = let list = sortBy (compare `on` snd) xs  
                      groupedList = groupBy ((==) `on` snd) list
                      combined = map (\l -> (map fst l, snd (head l))) groupedList
@@ -237,29 +244,31 @@ render = unpack . renderStrict . layoutSmart defaultLayoutOptions
 ppDecl :: MonadFD4 m => Decl TTerm Ty -> m String
 ppDecl (Decl p _ x ty [] t) = do
   gdecl <- gets glb
+  -- tye   <- elabTy p ty
   return (render $ sep [defColor (pretty "let")
                        , name2doc x
                        , pretty ":"
-                       , ty2doc ty
+                       , ty2doc (ty2sty ty)
                        , defColor (pretty "=")]
                    <+> nest 2 (t2doc False (openAll fst (map declName gdecl) t)))
 ppDecl (Decl p False f fty args t) = do
   gdecl <- gets glb
   return (render $ sep [defColor (pretty "let")
                        , name2doc f
-                       , binding2doc args
+                       , binding2doc (map (\(n,t) -> (n, ty2sty t)) args)
                        , pretty ":"
-                       , ty2doc fty
+                       , ty2doc (ty2sty fty)
                        , defColor (pretty "=")]
                    <+> nest 2 (t2doc False (openAll fst (map declName gdecl) t)))
 ppDecl (Decl p True f fty args t) = do
   gdecl <- gets glb
+  -- tye   <- elabTy p fty
   return (render $ sep [defColor (pretty "let")
                        , pretty "rec"
                        , name2doc f
-                       , binding2doc args
+                       , binding2doc (map (\(n,t) -> (n, ty2sty t)) args)
                        , pretty ":"
-                       , ty2doc fty
+                       , ty2doc (ty2sty fty)
                        , defColor (pretty "=")]
                    <+> nest 2 (t2doc False (openAll fst (map declName gdecl) t)))
 

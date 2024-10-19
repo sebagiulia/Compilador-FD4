@@ -30,9 +30,9 @@ import Global
 import Errors
 import Lang
 import Parse ( P, tm, program, declOrTm, runP )
-import Elab ( elab, elabDecl )
+import Elab ( elab, elabDecl, elabDeclTy )
 import Eval ( eval )
-import PPrint ( pp , ppTy, ppDecl )
+import PPrint ( pp , ppTy, ppDecl, ty2sty )
 import MonadFD4
 import TypeChecker ( tc, tcDecl )
 
@@ -98,7 +98,7 @@ repl args = do
                        b <- lift $ catchErrors $ handleCommand c
                        maybe loop (`when` loop) b
 
-loadFile ::  MonadFD4 m => FilePath -> m [Decl STerm STy]
+loadFile ::  MonadFD4 m => FilePath -> m [Either (DeclTy STy) (Decl STerm STy)]
 loadFile f = do
     let filename = reverse(dropWhile isSpace (reverse f))
     x <- liftIO $ catch (readFile filename)
@@ -117,7 +117,7 @@ compileFile f = do
     mapM_ handleDecl' decls
     setInter i
 
-handleDecl' :: Either DeclTy (Decl STerm STy) -> m ()
+handleDecl' :: MonadFD4 m => Either (DeclTy STy) (Decl STerm STy) -> m ()
 handleDecl' d = case d of   
                  Left t -> handleDeclTy t
                  Right dec -> handleDecl dec
@@ -166,9 +166,9 @@ handleDecl d = do
         addDecl ed
   where
     typecheckDecl :: MonadFD4 m => Decl STerm STy -> m (Decl TTerm Ty)
-    typecheckDecl = do 
-      de <- elabDecl
-      return $ tcDecl de
+    typecheckDecl t = do 
+      de <- elabDecl t
+      tcDecl de
 
 
 data Command = Compile CompileForm
@@ -263,16 +263,16 @@ handleTerm t = do
              v <- seek tt [] []
              let te = val2term (getInfo tt) v 
              ppte <- pp te
-             printFD4 (ppte ++ " : " ++ ppTy (getTy tt))
+             printFD4 (ppte ++ " : " ++ ppTy (ty2sty (getTy tt)))
            CEK -> do 
              v <- seek tt [] []
              let te = val2term (getInfo tt) v 
              ppte <- pp te
-             printFD4 (ppte ++ " : " ++ ppTy (getTy tt))  
+             printFD4 (ppte ++ " : " ++ ppTy (ty2sty (getTy tt)))  
            _ -> do 
              te <- eval tt
              ppte <- pp te
-             printFD4 (ppte ++ " : " ++ ppTy (getTy tt))
+             printFD4 (ppte ++ " : " ++ ppTy (ty2sty (getTy tt)))
 
 printPhrase   :: MonadFD4 m => String -> m ()
 printPhrase x =
@@ -296,4 +296,4 @@ typeCheckPhrase x = do
          s <- get
          tt <- tc t' (tyEnv s)
          let ty = getTy tt
-         printFD4 (ppTy ty)
+         printFD4 (ppTy (ty2sty ty))
