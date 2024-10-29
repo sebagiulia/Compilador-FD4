@@ -105,22 +105,22 @@ bcc t = case t of
   V i v -> case v of
     Free n -> undefined
     Global n -> undefined
-    Bound i -> return [ACCESS, i]
-  Lam i n ty s -> do b <- bcc s
-                     return $ [FUNCTION, length b] ++ b ++ [RETURN]
+    Bound n -> return [ACCESS, n]
+  Lam i n ty (Sc1 t') -> do b <- bcc t'
+                            return $ [FUNCTION, length b] ++ b ++ [RETURN]
   App i t1 t2 -> do b1 <- bcc t1
                     b2 <- bcc t2
                     return $ b1 ++ b2 ++ [CALL]
   BinaryOp i op t1 t2 -> do b1 <- bcc t1
                             b2 <- bcc t2
                             return $ b1 ++ b2 ++ [bopToBC op]
-  Let i n ty t (Sc1 t2) -> do b1 <- bcc t
-                              b2 <- bcc t2
-                              return $ b1 ++ [SHIFT] ++ b2 ++ [DROP]
-  Fix i f ty1 x ty2 s -> do b <- bcc s
-                            return $ [FUNCTION, length b] ++ b ++ [RETURN, FIX]   
-  IfZ i c t e -> undefined
-  Print i str t -> undefined
+  Let i n ty t1 (Sc1 t2) -> do b1 <- bcc t1
+                               b2 <- bcc t2
+                               return $ b1 ++ [SHIFT] ++ b2 ++ [DROP]
+  Fix i f ty1 x ty2 (Sc2 t') -> do b <- bcc t'
+                                   return $ [FUNCTION, length b] ++ b ++ [RETURN, FIX]   
+  IfZ i c t' e -> undefined
+  Print i str t' -> undefined
 
 bopToBC :: BinaryOp -> Opcode
 bopToBC Add = ADD
@@ -139,7 +139,7 @@ bytecompileModule :: MonadFD4 m => Module -> m Bytecode
 bytecompileModule [] = return []
 bytecompileModule m = bcc (foldr f (declBody neutro) (take (length m - 1) m))
                       where neutro = m!!(length m - 1)
-                            f (Decl i n ty tm) tt = Let i n ty tm (close n tt)
+                            f (Decl i _ n ty _ tm) tt = Let (i,ty) n ty tm (close n tt)
 
 -- | Toma un bytecode, lo codifica y lo escribe un archivo
 bcWrite :: Bytecode -> FilePath -> IO ()

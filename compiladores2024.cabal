@@ -38,6 +38,7 @@ executable compiladores2024
         Parse
         Subst
         TypeChecker
+        Bytecompile
 
     ghc-options: 
         -threaded 
