@@ -100,7 +100,32 @@ showBC :: Bytecode -> String
 showBC = intercalate "; " . showOps
 
 bcc :: MonadFD4 m => TTerm -> m Bytecode
-bcc t = failFD4 "implementame!"
+bcc t = case t of
+  Const i (CNat n) -> return [CONST, n]
+  V i v -> case v of
+    Free n -> undefined
+    Global n -> undefined
+    Bound i -> return [ACCESS, i]
+  Lam i n ty s -> do b <- bcc s
+                     return $ [FUNCTION, length b] ++ b ++ [RETURN]
+  App i t1 t2 -> do b1 <- bcc t1
+                    b2 <- bcc t2
+                    return $ b1 ++ b2 ++ [CALL]
+  BinaryOp i op t1 t2 -> do b1 <- bcc t1
+                            b2 <- bcc t2
+                            return $ b1 ++ b2 ++ [bopToBC op]
+  Let i n ty t (Sc1 t2) -> do b1 <- bcc t
+                              b2 <- bcc t2
+                              return $ b1 ++ [SHIFT] ++ b2 ++ [DROP]
+  Fix i f ty1 x ty2 s -> do b <- bcc s
+                            return $ [FUNCTION, length b] ++ b ++ [RETURN, FIX]   
+  IfZ i c t e -> undefined
+  Print i str t -> undefined
+
+bopToBC :: BinaryOp -> Opcode
+bopToBC Add = ADD
+bopToBC Sub = SUB
+
 
 -- ord/chr devuelven los codepoints unicode, o en otras palabras
 -- la codificación UTF-32 del caracter.
@@ -111,7 +136,10 @@ bc2string :: Bytecode -> String
 bc2string = map chr
 
 bytecompileModule :: MonadFD4 m => Module -> m Bytecode
-bytecompileModule m = failFD4 "implementame!"
+bytecompileModule [] = return []
+bytecompileModule m = bcc (foldr f (declBody neutro) (take (length m - 1) m))
+                      where neutro = m!!(length m - 1)
+                            f (Decl i n ty tm) tt = Let i n ty tm (close n tt)
 
 -- | Toma un bytecode, lo codifica y lo escribe un archivo
 bcWrite :: Bytecode -> FilePath -> IO ()
