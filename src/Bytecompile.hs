@@ -113,19 +113,30 @@ bcc t = case t of
                     return $ b1 ++ b2 ++ [CALL]
   BinaryOp i op t1 t2 -> do b1 <- bcc t1
                             b2 <- bcc t2
-                            return $ b1 ++ b2 ++ [bopToBC op]
+                            return $ b1 ++ b2 ++ [binop2bc op]
   Let i n ty t1 (Sc1 t2) -> do b1 <- bcc t1
                                b2 <- bcc t2
                                return $ b1 ++ [SHIFT] ++ b2 ++ [DROP]
   Fix i f ty1 x ty2 (Sc2 t') -> do b <- bcc t'
                                    return $ [FUNCTION, length b] ++ b ++ [RETURN, FIX]   
-  IfZ i c t' e -> undefined
-  Print i str t' -> undefined
+  IfZ i c t1 t2 -> undefined
+{-
+    do c' <- bcc c
+                      t1' <- bcc t1
+                      t2' <- bcc t2
 
-bopToBC :: BinaryOp -> Opcode
-bopToBC Add = ADD
-bopToBC Sub = SUB
+C(ifz c )
 
+-}
+  Print i str arg -> do arg' <- bcc arg
+                        case arg' of 
+                          [CONST, n] -> return $ [PRINTN]
+                          _          -> return $ [PRINT] ++ (string2bc str) ++ [NULL]
+
+
+binop2bc :: BinaryOp -> Opcode
+binop2bc Add = ADD
+binop2bc Sub = SUB
 
 -- ord/chr devuelven los codepoints unicode, o en otras palabras
 -- la codificación UTF-32 del caracter.
@@ -141,7 +152,7 @@ bytecompileModule m = bcc (foldr f (declBody neutro) (take (length m - 1) m))
                       where neutro = m!!(length m - 1)
                             f (Decl i _ n ty _ tm) tt = Let (i,ty) n ty tm (close n tt)
 
--- | Toma un bytecode, lo codifica y lo escribe un archivo
+-- | Toma un bytecode, lo codifica y lo escribe en un archivo
 bcWrite :: Bytecode -> FilePath -> IO ()
 bcWrite bs filename = BS.writeFile filename (encode $ BC $ fromIntegral <$> bs)
 
