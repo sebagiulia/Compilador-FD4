@@ -73,6 +73,7 @@ pattern DROP     = 12
 pattern PRINT    = 13
 pattern PRINTN   = 14
 pattern JUMP     = 15
+pattern IFZ      = 16
 
 --función util para debugging: muestra el Bytecode de forma más legible.
 showOps :: Bytecode -> [String]
@@ -119,20 +120,26 @@ bcc t = case t of
                                return $ b1 ++ [SHIFT] ++ b2 ++ [DROP]
   Fix i f ty1 x ty2 (Sc2 t') -> do b <- bcc t'
                                    return $ [FUNCTION, length b] ++ b ++ [RETURN, FIX]   
-  IfZ i c t1 t2 -> undefined
-{-
-    do c' <- bcc c
+  IfZ i c t1 t2 -> do c' <- bcc c
                       t1' <- bcc t1
                       t2' <- bcc t2
-
-C(ifz c )
-
--}
+                      let th = [FUNCTION, length t1'] ++ t1' ++ [RETURN]
+                      let el = [FUNCTION, length t2'] ++ t2' ++ [RETURN]
+                      return $ el ++ th ++ c' ++ [IFZ] 
   Print i str arg -> do arg' <- bcc arg
                         case arg' of 
                           [CONST, n] -> return $ [PRINTN]
                           _          -> return $ [PRINT] ++ (string2bc str) ++ [NULL]
 
+{-
+Regla de compilación:
+  C(ifz c t1 t2) = FUNCTION(C(t2));FUNCTION(C(t1));C(c);IFZ
+
+Reglas de ejecución:
+  <IFZ;c | e |   0  :(et, ct):(ee, ce):s>  -->  <ct | et | (e,c)RA:s>
+  <IFZ;c | e | (n+1):(et, ct):(ee, ce):s>  -->  <ce | ee | (e,c)RA:s>
+
+-}
 
 binop2bc :: BinaryOp -> Opcode
 binop2bc Add = ADD
