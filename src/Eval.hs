@@ -14,7 +14,7 @@ module Eval where
 import Common ( abort )
 import Lang
 import Subst ( subst2, subst )
-import MonadFD4 ( MonadFD4, lookupDecl, failFD4, printFD4 )
+import MonadFD4 ( MonadFD4, lookupDecl, failFD4, printLnFD4 )
 import PPrint ( ppName, pp )
 
 -- | Semántica de operadores binarios
@@ -44,7 +44,7 @@ eval (App p l r) = do
 eval (Print p str t) = do
         te <- eval t
         case te of
-          Const _ (CNat n) -> do printFD4 (str++show n)
+          Const _ (CNat n) -> do printLnFD4 (str++show n)
                                  return te
           _                -> abort "Error de tipo en runtime! : Print"
 eval (BinaryOp p op t u) = do
