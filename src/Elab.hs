@@ -10,13 +10,14 @@ Este módulo permite elaborar términos y declaraciones para convertirlas desde
 fully named (@STerm) a locally closed (@Term@)
 -}
 
-module Elab ( elab, elabDecl, elabDeclTy) where
+module Elab (elab, elabDecl, elabDeclTy) where
 
 import Lang
 import Subst
 import Common
 import MonadFD4
 import PPrint (ppName)
+import Global 
 
 -- | 'elab' transforma variables ligadas en índices de de Bruijn
 -- en un término dado. 
@@ -132,8 +133,11 @@ elabTy (SFunTy a b) = do
     return $ FunTy sa sb 
 elabTy (SVarTy n) = do
     ty <- lookupType n
+    m <- getMode
     case ty of
-        Nothing -> failFD4 $ "Tipo no declarado: " ++ ppName n
+        Nothing -> case m of
+                    CompBC -> return NatTy
+                    _ -> failFD4 $ "Tipo no declarado: " ++ ppName n
         Just typ -> return typ
 
 typeConverter :: (Name, Ty) -> Ty -> Ty

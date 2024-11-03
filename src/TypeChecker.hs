@@ -98,9 +98,12 @@ expect :: MonadFD4 m => Ty    -- ^ tipo esperado
                      -> m TTerm
 expect ty tt = let ty' = getTy tt
                in if ty == ty' then return tt 
-                               else typeError tt $ 
-              "Tipo esperado: "++ ppTy (ty2sty ty)
-            ++"\npero se obtuvo: "++ ppTy (ty2sty ty')
+                               else do m <- getMode
+                                       case m of
+                                         CompBC -> return tt
+                                         _ -> typeError tt $
+                                                 "Tipo esperado: "++ ppTy (ty2sty ty)
+                                               ++"\npero se obtuvo: "++ ppTy (ty2sty ty')
 
 -- | 'domCod chequea que un tipo sea función
 -- | devuelve un par con el tipo del dominio y el codominio de la función
