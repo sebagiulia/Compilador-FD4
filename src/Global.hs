@@ -35,6 +35,8 @@ data Mode =
   | CEK
   | Typecheck
   | Eval
+  | CompBC
+  | RunMV
 data Conf = Conf {
     opt :: Bool,          --  ^ True, si estan habilitadas las optimizaciones.
     modo :: Mode

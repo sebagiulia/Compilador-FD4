@@ -21,6 +21,7 @@ import Data.Char ( isSpace )
 import Control.Exception ( catch , IOException )
 import System.IO ( hPrint, stderr, hPutStrLn )
 import Data.Maybe ( fromMaybe )
+import Bytecompile
 
 import System.Exit ( exitWith, ExitCode(ExitFailure) )
 import Options.Applicative
@@ -47,6 +48,8 @@ parseMode = (,) <$>
       <|> flag InteractiveCEK InteractiveCEK ( long "interactiveCEK" <> short 'c' <> help "Ejecutar de forma interactiva en maquina abstracta")
       <|> flag CEK            CEK            ( long "cek" <> short 'k' <> help "Ejecutar en maquina abstracta")
       <|> flag Eval           Eval           ( long "eval" <> short 'e' <> help "Evaluar programa")
+      <|> flag CompBC           CompBC           ( long "bytecompile" <> short 'm' <> help "Compilar a Macchina")
+      <|> flag RunMV           RunMV           ( long "runVM" <> short 'r' <> help "Ejecutar bytecode en la Macchina")
       )
    <*> pure False
 
@@ -67,8 +70,16 @@ main = execParser opts >>= go
               runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
     go (InteractiveCEK,opt,files) =
               runOrFail (Conf opt InteractiveCEK) (runInputT defaultSettings (repl files))
+    go (RunMV,opt,files) =
+              runMV (Conf opt RunMV) files
     go (m,opt, files) =
               runOrFail (Conf opt m) $ mapM_ compileFile files
+
+runMV :: Conf -> [FilePath] -> IO ()
+runMV c files = do
+  bc <- bcRead (head files)
+  print $ showBC bc
+  runOrFail c (runBC bc)
 
 runOrFail :: Conf -> FD4 a -> IO a
 runOrFail c m = do
@@ -110,12 +121,25 @@ loadFile f = do
 
 compileFile ::  MonadFD4 m => FilePath -> m ()
 compileFile f = do
-    i <- getInter
-    setInter False
-    when i $ printFD4 ("Abriendo "++f++"...")
-    decls <- loadFile f
-    mapM_ handleDecl' decls
-    setInter i
+    m <- getMode
+    case m of
+      CompBC -> do
+        i <- getInter
+        setInter False
+        decls <- loadFile f
+        let notypes = concatMap quitDeclType decls
+        notypes' <- mapM typecheckDecl notypes
+        bc <- bytecompileModule notypes'
+        printFD4 (showBC bc)
+        liftIO $ bcWrite bc (f ++ ".bc")
+      _ -> do i <- getInter
+              setInter False
+              when i $ printFD4 ("Abriendo "++f++"...")
+              decls <- loadFile f
+              mapM_ handleDecl' decls
+              setInter i
+  where quitDeclType (Left _) = []
+        quitDeclType (Right d) = [d] 
 
 handleDecl' :: MonadFD4 m => Either (DeclTy STy) (Decl STerm STy) -> m ()
 handleDecl' d = case d of   
@@ -164,11 +188,12 @@ handleDecl d = do
         td <- typecheckDecl d
         ed <- evalDecl td
         addDecl ed
-  where
-    typecheckDecl :: MonadFD4 m => Decl STerm STy -> m (Decl TTerm Ty)
-    typecheckDecl t = do 
-      de <- elabDecl t
-      tcDecl de
+      _ -> undefined
+  
+typecheckDecl :: MonadFD4 m => Decl STerm STy -> m (Decl TTerm Ty)
+typecheckDecl t = do 
+  de <- elabDecl t
+  tcDecl de
 
 
 data Command = Compile CompileForm
