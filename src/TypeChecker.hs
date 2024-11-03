@@ -27,10 +27,18 @@ tc :: MonadFD4 m => Term         -- ^ término a chequear
                  -> m TTerm        -- ^ tipo del término
 tc (V p (Bound _)) _ = failPosFD4 p "typecheck: No deberia haber variables Bound"
 tc (V p (Free n)) bs = case lookup n bs of
-                           Nothing -> failPosFD4 p $ "Variable no declarada "++ppName n
+                           Nothing -> do
+                             m <- getMode
+                             case m of
+                               CompBC -> return (V (p, NatTy) (Free n))
+                               _ -> failPosFD4 p $ "Variable no declarada "++ppName n
                            Just ty -> return (V (p,ty) (Free n)) 
 tc (V p (Global n)) bs = case lookup n bs of
-                           Nothing -> failPosFD4 p $ "Variable no declarada "++ppName n
+                           Nothing -> do
+                             m <- getMode
+                             case m of
+                               CompBC -> return (V (p, NatTy) (Free n))
+                               _ -> failPosFD4 p $ "Variable no declarada "++ppName n
                            Just ty -> return (V (p,ty) (Global n))
 tc (Const p (CNat n)) _ = return (Const (p,NatTy) (CNat n))
 tc (Print p str t) bs = do 
@@ -97,19 +105,28 @@ expect ty tt = let ty' = getTy tt
 -- | 'domCod chequea que un tipo sea función
 -- | devuelve un par con el tipo del dominio y el codominio de la función
 domCod :: MonadFD4 m => TTerm -> m (Ty, Ty)
-domCod tt = case getTy tt of
-    FunTy d c -> return (d, c)
-    _         -> typeError tt $ "Se esperaba un tipo función, pero se obtuvo: " ++ ppTy (ty2sty (getTy tt))
-
+domCod tt = do
+    m <- getMode
+    case getTy tt of
+      FunTy d c -> return (d, c)
+      _         -> case m of
+                    CompBC -> return (NatTy, NatTy)
+                    _    -> typeError tt $ "Se esperaba un tipo función, pero se obtuvo: " ++ ppTy (ty2sty (getTy tt))
 -- | 'tcDecl' chequea el tipo de una declaración
 -- y la agrega al entorno de tipado de declaraciones globales
 tcDecl :: MonadFD4 m  => Decl Term Ty -> m (Decl TTerm Ty)
 tcDecl (Decl p _ n ty _ t) = do
     --chequear si el nombre ya está declarado
     mty <- lookupTy n
-    case mty of
-        Nothing -> do  --no está declarado 
-                  s <- get
-                  tt <- tc t (tyEnv s)                 
-                  return (Decl p False n ty [] tt)
-        Just _  -> failPosFD4 p $ n ++" ya está declarado"
+    m <- getMode
+    case m of
+      CompBC -> do  --ignoramos el nombres en modo Bytecode
+          s <- get
+          tt <- tc t (tyEnv s)                 
+          return (Decl p False n ty [] tt)
+      _ -> case mty of
+             Nothing -> do
+                    s <- get
+                    tt <- tc t (tyEnv s)                 
+                    return (Decl p False n ty [] tt)
+             Just _  -> failPosFD4 p $ n ++" ya está declarado"
