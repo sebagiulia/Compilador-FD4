@@ -255,7 +255,7 @@ ppDecl (Decl p False f fty args t) = do
   gdecl <- gets glb
   return (render $ sep [defColor (pretty "let")
                        , name2doc f
-                       , binding2doc (map (\(n,t) -> (n, ty2sty t)) args)
+                       , binding2doc (map (\(n,t') -> (n, ty2sty t')) args)
                        , pretty ":"
                        , ty2doc (ty2sty fty)
                        , defColor (pretty "=")]
@@ -266,7 +266,7 @@ ppDecl (Decl p True f fty args t) = do
   return (render $ sep [defColor (pretty "let")
                        , pretty "rec"
                        , name2doc f
-                       , binding2doc (map (\(n,t) -> (n, ty2sty t)) args)
+                       , binding2doc (map (\(n,t') -> (n, ty2sty t')) args)
                        , pretty ":"
                        , ty2doc (ty2sty fty)
                        , defColor (pretty "=")]
