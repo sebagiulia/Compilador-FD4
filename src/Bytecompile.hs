@@ -137,7 +137,7 @@ bcc term = bcc' term >>= return . (++ [STOP])
                             let el = [FUNCTION, length t2' + 1 ] ++ t2' ++ [RETURN]
                             return $ el ++ th ++ c' ++ [IFZ] 
         Print i str arg -> do arg' <- bcc' arg
-                              return $ [PRINT] ++ (string2bc str) ++ [NULL] ++ arg' ++ [PRINTN]
+                              return $  arg' ++ [PRINT] ++ (string2bc str) ++ [NULL] ++ [PRINTN]
 
 binop2bc :: BinaryOp -> Opcode
 binop2bc Add = ADD
@@ -175,7 +175,7 @@ runBC bc = macchina bc [] []
 macchina :: MonadFD4 m => Bytecode -> Env -> Stack -> m ()
 macchina (CONST:n:cs) e s = macchina cs e ((I n):s)
 macchina (ADD:cs) e ((I a):(I b):s) = macchina cs e ((I (a+b)):s) 
-macchina (SUB:cs) e ((I a):(I b):s) = macchina cs e ((I ((max 0 (a-b)))):s)
+macchina (SUB:cs) e ((I a):(I b):s) = macchina cs e ((I ((max 0 (b - a)))):s)
 macchina (ACCESS:n:cs) e s = macchina cs e ((e!!n):s)
 macchina (CALL:cs) e (v:Fun e' bc':s) = macchina bc' (v:e') ((RA e cs):s)
 macchina (FUNCTION:n:cs) e s = macchina (drop n cs) e (Fun e (take n cs):s)
@@ -184,14 +184,14 @@ macchina (FIX:cs) e ((Fun e' cf):s) = do let efix = (Fun efix cf): e'
                                          macchina cs e ((Fun efix cf):s) 
 macchina (SHIFT:cs) e (v:s) = macchina cs (v:e) s
 macchina (DROP:cs) e s = macchina cs (tail e) s
-macchina (PRINTN:cs) e ((I n):s) = do printFD4 (show n)
+macchina (PRINTN:cs) e ((I n):s) = do printLnFD4 (show n)
                                       macchina cs e ((I n):s)
 macchina (PRINT:cs) e s = do let str = takeWhile (/=NULL) cs
                              printFD4 $ bc2string str
                              macchina (drop (length str) cs) e s
 macchina (NULL:cs) e s = macchina cs e s
-macchina (STOP:cs) e s = printFD4 (show (head s))
 macchina (IFZ:cs) e ( I 0 : Fun e1 c1 : _ : s) = macchina c1 e1 (RA e cs:s)
 macchina (IFZ:cs) e ( I _ : _ : Fun e2 c2 : s) = macchina c2 e2 (RA e cs:s)
+macchina (STOP:cs) e s = return () 
 macchina (c:_) e s = failFD4 $ "Instrucción inválida en la Macchina: " ++ (show c)
 macchina [] e s = failFD4 "No hay más instrucciones en la Macchina"

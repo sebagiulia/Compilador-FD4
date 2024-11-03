@@ -78,7 +78,6 @@ main = execParser opts >>= go
 runMV :: Conf -> [FilePath] -> IO ()
 runMV c files = do
   bc <- bcRead (head files)
-  print $ showBC bc
   runOrFail c (runBC bc)
 
 runOrFail :: Conf -> FD4 a -> IO a
@@ -130,11 +129,12 @@ compileFile f = do
         let notypes = concatMap quitDeclType decls
         notypes' <- mapM typecheckDecl notypes
         bc <- bytecompileModule notypes'
-        printFD4 (showBC bc)
-        liftIO $ bcWrite bc (f ++ ".bc")
+        printLnFD4 (showBC bc)
+        let filepath = reverse (drop 4 (reverse f)) ++ ".bc" 
+        liftIO $ bcWrite bc (filepath)
       _ -> do i <- getInter
               setInter False
-              when i $ printFD4 ("Abriendo "++f++"...")
+              when i $ printLnFD4 ("Abriendo "++f++"...")
               decls <- loadFile f
               mapM_ handleDecl' decls
               setInter i
@@ -179,11 +179,11 @@ handleDecl d = do
         addDecl (Decl p b x ty l (val2term (getInfo tt) v))    
       Typecheck -> do
         f <- getLastFile
-        printFD4 ("Chequeando tipos de "++f)
+        printLnFD4 ("Chequeando tipos de "++f)
         td <- typecheckDecl d
         addDecl td
         ppterm <- ppDecl td
-        printFD4 ppterm
+        printLnFD4 ppterm
       Eval -> do
         td <- typecheckDecl d
         ed <- evalDecl td
@@ -258,8 +258,8 @@ handleCommand cmd = do
    case cmd of
        Quit   ->  return False
        Noop   ->  return True
-       Help   ->  printFD4 (helpTxt commands) >> return True
-       Browse ->  do  printFD4 (unlines (reverse (nub (map declName glb))))
+       Help   ->  printLnFD4 (helpTxt commands) >> return True
+       Browse ->  do  printLnFD4 (unlines (reverse (nub (map declName glb))))
                       return True
        Compile c ->
                   do  case c of
@@ -288,16 +288,16 @@ handleTerm t = do
              v <- seek tt [] []
              let te = val2term (getInfo tt) v 
              ppte <- pp te
-             printFD4 (ppte ++ " : " ++ ppTy (ty2sty (getTy tt)))
+             printLnFD4 (ppte ++ " : " ++ ppTy (ty2sty (getTy tt)))
            CEK -> do 
              v <- seek tt [] []
              let te = val2term (getInfo tt) v 
              ppte <- pp te
-             printFD4 (ppte ++ " : " ++ ppTy (ty2sty (getTy tt)))  
+             printLnFD4 (ppte ++ " : " ++ ppTy (ty2sty (getTy tt)))  
            _ -> do 
              te <- eval tt
              ppte <- pp te
-             printFD4 (ppte ++ " : " ++ ppTy (ty2sty (getTy tt)))
+             printLnFD4 (ppte ++ " : " ++ ppTy (ty2sty (getTy tt)))
 
 printPhrase   :: MonadFD4 m => String -> m ()
 printPhrase x =
@@ -309,10 +309,10 @@ printPhrase x =
     t  <- case x' of
            (SV p f) -> fromMaybe tex <$> lookupDecl f
            _       -> return tex
-    printFD4 "STerm:"
-    printFD4 (show x')
-    printFD4 "TTerm:"
-    printFD4 (show t)
+    printLnFD4 "STerm:"
+    printLnFD4 (show x')
+    printLnFD4 "TTerm:"
+    printLnFD4 (show t)
 
 typeCheckPhrase :: MonadFD4 m => String -> m ()
 typeCheckPhrase x = do
@@ -321,4 +321,4 @@ typeCheckPhrase x = do
          s <- get
          tt <- tc t' (tyEnv s)
          let ty = getTy tt
-         printFD4 (ppTy (ty2sty ty))
+         printLnFD4 (ppTy (ty2sty ty))
