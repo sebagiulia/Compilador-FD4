@@ -82,6 +82,7 @@ pattern PRINT    = 13
 pattern PRINTN   = 14
 pattern JUMP     = 15
 pattern IFZ      = 16
+pattern TAILCALL = 17
 
 --función util para debugging: muestra el Bytecode de forma más legible.
 showOps :: Bytecode -> [String]
@@ -103,7 +104,8 @@ showOps (PRINT:xs)       = let (msg,_:rest) = span (/=NULL) xs
                            in ("PRINT " ++ show (bc2string msg)) : showOps rest
 showOps (PRINTN:xs)      = "PRINTN" : showOps xs
 showOps (ADD:xs)         = "ADD" : showOps xs
-showOps (IFZ:xs)           = "IFZ" : showOps xs
+showOps (IFZ:xs)         = "IFZ" : showOps xs
+showOps (TAILCALL:xs)    = "TAILCALL" : showOps xs
 showOps (x:xs)           = (show x): showOps xs
 
 showBC :: Bytecode -> String
@@ -111,33 +113,51 @@ showBC = intercalate "; " . showOps
 
 bcc :: MonadFD4 m => TTerm -> m Bytecode
 bcc term = bcc' term >>= return . (++ [STOP])
- where bcc' t = case t of
-        Const i (CNat n) -> return [CONST, n]
-        V i v -> case v of
-          Free n -> undefined
-          Global n -> undefined
-          Bound n -> return [ACCESS, n]
-        Lam i n ty (Sc1 t') -> do b <- bcc' t'
-                                  return $ [FUNCTION, length b + 1] ++ b ++ [RETURN]
-        App i t1 t2 -> do b1 <- bcc' t1
-                          b2 <- bcc' t2
-                          return $ b1 ++ b2 ++ [CALL]
-        BinaryOp i op t1 t2 -> do b1 <- bcc' t1
-                                  b2 <- bcc' t2
-                                  return $ b1 ++ b2 ++ [binop2bc op]
-        Let i n ty t1 (Sc1 t2) -> do b1 <- bcc' t1
-                                     b2 <- bcc' t2
-                                     return $ b1 ++ [SHIFT] ++ b2 ++ [DROP]
-        Fix i f ty1 x ty2 (Sc2 t') -> do b <- bcc' t'
-                                         return $ [FUNCTION, length b + 1] ++ b ++ [RETURN, FIX]   
-        IfZ i c t1 t2 -> do c' <- bcc' c
-                            t1' <- bcc' t1
-                            t2' <- bcc' t2
-                            let th = [FUNCTION, length t1' + 1] ++ t1' ++ [RETURN]
-                            let el = [FUNCTION, length t2' + 1 ] ++ t2' ++ [RETURN]
-                            return $ el ++ th ++ c' ++ [IFZ] 
-        Print i str arg -> do arg' <- bcc' arg
-                              return $  arg' ++ [PRINT] ++ (string2bc str) ++ [NULL] ++ [PRINTN]
+ 
+bcc' :: MonadFD4 m => TTerm -> m Bytecode
+bcc' (Const i (CNat n)) = return [CONST, n]
+bcc' (V i (Bound n)) = return [ACCESS, n]
+bcc' (V i (Free _)) = undefined
+bcc' (V i (Global _)) = undefined
+bcc' (Lam i n ty (Sc1 t')) = do b <- tcc t'
+                                return $ [FUNCTION, length b + 1] ++ b ++ [RETURN]
+bcc' (App i t1 t2) = do b1 <- bcc' t1
+                        b2 <- bcc' t2
+                        return $ b1 ++ b2 ++ [CALL]
+bcc' (BinaryOp i op t1 t2) = do b1 <- bcc' t1
+                                b2 <- bcc' t2
+                                return $ b1 ++ b2 ++ [binop2bc op]
+bcc' (Let i n ty t1 (Sc1 t2)) = do b1 <- bcc' t1
+                                   b2 <- bcc' t2
+                                   return $ b1 ++ [SHIFT] ++ b2 ++ [DROP]
+bcc' (Fix i f ty1 x ty2 (Sc2 t')) = do b <- bcc' t'
+                                       return $ [FUNCTION, length b + 1] ++ b ++ [RETURN, FIX]   
+bcc' (IfZ i c t1 t2) = do c' <- bcc' c
+                          t1' <- bcc' t1
+                          t2' <- bcc' t2
+                          let th = [FUNCTION, length t1' + 1] ++ t1' ++ [RETURN]
+                          let el = [FUNCTION, length t2' + 1 ] ++ t2' ++ [RETURN]
+                          return $ el ++ th ++ c' ++ [IFZ] 
+-- bcc' (IfZ i c t1 t2) = do c' <- bcc' c
+--                           t1' <- bcc' t1
+--                           t2' <- bcc' t2
+--                           return $ c' ++ [JUMP, length t1'] ++ t1' ++ t2' 
+bcc' (Print i str arg) = do arg' <- bcc' arg
+                            return $  arg' ++ [PRINT] ++ (string2bc str) ++ [NULL] ++ [PRINTN]
+
+tcc :: MonadFD4 m => TTerm -> m Bytecode
+tcc (App i t1 t2) = do bt1 <- bcc' t1
+                       bt2 <- bcc' t2
+                       return $ bt1 ++ bt2 ++ [TAILCALL]
+tcc (IfZ i c t1 t2) = do c' <- bcc' c
+                         t1' <- tcc t1 
+                         t2' <- tcc t2 
+                         return $ c' ++ [JUMP, length t1'] ++ t1' ++ t2'
+tcc (Let i n ty t1 (Sc1 t2)) = do b1 <- bcc' t1
+                                  t2' <- tcc t2
+                                  return $ b1 ++ [SHIFT] ++ t2'
+tcc t = do tt <- bcc' t
+           return $ tt ++ [RETURN]
 
 binop2bc :: BinaryOp -> Opcode
 binop2bc Add = ADD
@@ -192,6 +212,9 @@ macchina (PRINT:cs) e s = do let str = takeWhile (/=NULL) cs
 macchina (NULL:cs) e s = macchina cs e s
 macchina (IFZ:cs) e ( I 0 : Fun e1 c1 : _ : s) = macchina c1 e1 (RA e cs:s)
 macchina (IFZ:cs) e ( I _ : _ : Fun e2 c2 : s) = macchina c2 e2 (RA e cs:s)
+macchina (JUMP:_:cs) e (I 0:s) = macchina cs e s
+macchina (JUMP:n:cs) e (I _:s) = macchina (drop n cs) e s
+macchina (TAILCALL:_) _ (v:Fun e' bc':RA e bc:s) = macchina bc' (v:e') (RA e bc:s)
 macchina (STOP:cs) e s = return () 
-macchina (c:_) e s = failFD4 $ "Instrucción inválida en la Macchina: " ++ (show c)
+macchina (c:_) e s = failFD4 $ "Instrucción inválida en la Macchina: " ++ head (showOps [c])
 macchina [] e s = failFD4 "No hay más instrucciones en la Macchina"

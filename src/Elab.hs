@@ -14,7 +14,6 @@ module Elab (elab, elabDecl, elabDeclTy) where
 
 import Lang
 import Subst
-import Common
 import MonadFD4
 import PPrint (ppName)
 import Global 
