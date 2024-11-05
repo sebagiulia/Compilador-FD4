@@ -36,6 +36,8 @@ enum {
 	PRINT    = 13,
 	PRINTN   = 14,
 	JUMP     = 15,
+	IFZ      = 16,
+	TAILCALL = 17
 };
 
 #define quit(...)							\
@@ -192,8 +194,11 @@ void run(code init_c)
 		/* Consumimos un opcode y lo inspeccionamos. */
 		switch(*c++) {
 		case ACCESS: {
-			/* implementame */
-			abort();
+			uint32_t i = *c++;
+			env e_aux = e;
+			while(i--) (e_aux = e_aux->next);
+			(*s++).i = e_aux->v.i;
+			break;
 		}
 
 		case CONST: {
@@ -318,13 +323,15 @@ void run(code init_c)
 		}
 
 		case SHIFT: {
-			/* implementame */
-			abort();
+			value val = (*--s);
+			e = env_push(e, val);
+			break;
 		}
 
 		case DROP: {
-			/* implementame */
-			abort();
+			env e_aux = e;
+			e = e->next;
+			break;
 		}
 
 		case PRINTN: {
@@ -338,6 +345,42 @@ void run(code init_c)
 			while ((wc = *c++))
 				putwchar(wc);
 
+			break;
+		}
+
+		case IFZ: {
+			uint32_t cond = (*--s).i;
+			value th = *--s;
+			value el = *--s;
+
+			struct clo ret_addr = { .clo_env = e, .clo_body = c };
+			(*s++).clo = ret_addr;
+
+			if (cond == 0) {
+				e = th.clo.clo_env;
+				c = th.clo.clo_body;
+			} else {
+				e = el.clo.clo_env;
+				c = el.clo.clo_body;
+			}
+			break;
+		}
+
+		case TAILCALL: {
+			value val = *--s;
+			value fun = *--s;
+
+			e = env_push(fun.clo.clo_env, val);
+			c = fun.clo.clo_body;
+			break;
+		}
+
+		case JUMP: {
+			uint32_t n = (*--s).i;
+			uint32_t val = *c++;
+			if (n) {
+				c += val;
+			}
 			break;
 		}
 

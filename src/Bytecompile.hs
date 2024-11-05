@@ -1,5 +1,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Redundant bracket" #-}
 {-|
 Module      : Bytecompile
 Description : Compila a bytecode. Ejecuta bytecode.
@@ -30,7 +32,7 @@ import Data.Char
 type Opcode = Int
 type Bytecode = [Int]
 data Val = I Int | Fun Env Bytecode | RA Env Bytecode deriving Show
-type Stack = [Val] 
+type Stack = [Val]
 type Env = [Val]
 
 {- Esta nueva representación de Bytecode es simplemente una lista de
@@ -113,7 +115,7 @@ showBC = intercalate "; " . showOps
 
 bcc :: MonadFD4 m => TTerm -> m Bytecode
 bcc term = bcc' term >>= return . (++ [STOP])
- 
+
 bcc' :: MonadFD4 m => TTerm -> m Bytecode
 bcc' (Const i (CNat n)) = return [CONST, n]
 bcc' (V i (Bound n)) = return [ACCESS, n]
@@ -131,27 +133,27 @@ bcc' (Let i n ty t1 (Sc1 t2)) = do b1 <- bcc' t1
                                    b2 <- bcc' t2
                                    return $ b1 ++ [SHIFT] ++ b2 ++ [DROP]
 bcc' (Fix i f ty1 x ty2 (Sc2 t')) = do b <- bcc' t'
-                                       return $ [FUNCTION, length b + 1] ++ b ++ [RETURN, FIX]   
+                                       return $ [FUNCTION, length b + 1] ++ b ++ [RETURN, FIX]
 bcc' (IfZ i c t1 t2) = do c' <- bcc' c
                           t1' <- bcc' t1
                           t2' <- bcc' t2
                           let th = [FUNCTION, length t1' + 1] ++ t1' ++ [RETURN]
                           let el = [FUNCTION, length t2' + 1 ] ++ t2' ++ [RETURN]
-                          return $ el ++ th ++ c' ++ [IFZ] 
+                          return $ el ++ th ++ c' ++ [IFZ]
 -- bcc' (IfZ i c t1 t2) = do c' <- bcc' c
 --                           t1' <- bcc' t1
 --                           t2' <- bcc' t2
 --                           return $ c' ++ [JUMP, length t1'] ++ t1' ++ t2' 
 bcc' (Print i str arg) = do arg' <- bcc' arg
-                            return $  arg' ++ [PRINT] ++ (string2bc str) ++ [NULL] ++ [PRINTN]
+                            return $  arg' ++ [PRINT] ++ string2bc str ++ [NULL] ++ [PRINTN]
 
 tcc :: MonadFD4 m => TTerm -> m Bytecode
 tcc (App i t1 t2) = do bt1 <- bcc' t1
                        bt2 <- bcc' t2
                        return $ bt1 ++ bt2 ++ [TAILCALL]
 tcc (IfZ i c t1 t2) = do c' <- bcc' c
-                         t1' <- tcc t1 
-                         t2' <- tcc t2 
+                         t1' <- tcc t1
+                         t2' <- tcc t2
                          return $ c' ++ [JUMP, length t1'] ++ t1' ++ t2'
 tcc (Let i n ty t1 (Sc1 t2)) = do b1 <- bcc' t1
                                   t2' <- tcc t2
@@ -190,18 +192,18 @@ bcRead :: FilePath -> IO Bytecode
 bcRead filename = (map fromIntegral <$> un32) . decode <$> BS.readFile filename
 
 runBC :: MonadFD4 m => Bytecode -> m ()
-runBC bc = macchina bc [] []  
+runBC bc = macchina bc [] []
 
 macchina :: MonadFD4 m => Bytecode -> Env -> Stack -> m ()
-macchina (CONST:n:cs) e s = macchina cs e ((I n):s)
-macchina (ADD:cs) e ((I a):(I b):s) = macchina cs e ((I (a+b)):s) 
-macchina (SUB:cs) e ((I a):(I b):s) = macchina cs e ((I ((max 0 (b - a)))):s)
+macchina (CONST:n:cs) e s = macchina cs e (I n:s)
+macchina (ADD:cs) e ((I a):(I b):s) = macchina cs e ((I (a+b)):s)
+macchina (SUB:cs) e ((I a):(I b):s) = macchina cs e (I (max 0 (b - a)):s)
 macchina (ACCESS:n:cs) e s = macchina cs e ((e!!n):s)
 macchina (CALL:cs) e (v:Fun e' bc':s) = macchina bc' (v:e') ((RA e cs):s)
 macchina (FUNCTION:n:cs) e s = macchina (drop n cs) e (Fun e (take n cs):s)
 macchina (RETURN:_) _ (v:RA e bc:s) = macchina bc e (v:s)
 macchina (FIX:cs) e ((Fun e' cf):s) = do let efix = (Fun efix cf): e'
-                                         macchina cs e ((Fun efix cf):s) 
+                                         macchina cs e ((Fun efix cf):s)
 macchina (SHIFT:cs) e (v:s) = macchina cs (v:e) s
 macchina (DROP:cs) e s = macchina cs (tail e) s
 macchina (PRINTN:cs) e ((I n):s) = do printLnFD4 (show n)
@@ -215,6 +217,6 @@ macchina (IFZ:cs) e ( I _ : _ : Fun e2 c2 : s) = macchina c2 e2 (RA e cs:s)
 macchina (JUMP:_:cs) e (I 0:s) = macchina cs e s
 macchina (JUMP:n:cs) e (I _:s) = macchina (drop n cs) e s
 macchina (TAILCALL:_) _ (v:Fun e' bc':RA e bc:s) = macchina bc' (v:e') (RA e bc:s)
-macchina (STOP:cs) e s = return () 
+macchina (STOP:cs) e s = return ()
 macchina (c:_) e s = failFD4 $ "Instrucción inválida en la Macchina: " ++ head (showOps [c])
 macchina [] e s = failFD4 "No hay más instrucciones en la Macchina"
