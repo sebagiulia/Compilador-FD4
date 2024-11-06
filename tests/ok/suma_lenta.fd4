@@ -1,0 +1,7 @@
+let succ (x : Nat) : Nat = x + 1
+
+let rec suma (m n : Nat) : Nat =
+ifz n then m
+else succ (suma m (n - 1))
+
+let res : Nat = suma 1000000 2000000
