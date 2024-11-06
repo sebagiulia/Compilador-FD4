@@ -114,7 +114,9 @@ showBC :: Bytecode -> String
 showBC = intercalate "; " . showOps
 
 bcc :: MonadFD4 m => TTerm -> m Bytecode
-bcc term = bcc' term >>= return . (++ [STOP])
+bcc term = do bc <- bcc' term 
+              let (_,bc_clean) = span (==DROP) (reverse bc)
+              return $ reverse bc_clean ++ [STOP]
 
 bcc' :: MonadFD4 m => TTerm -> m Bytecode
 bcc' (Const i (CNat n)) = return [CONST, n]
@@ -122,7 +124,7 @@ bcc' (V i (Bound n)) = return [ACCESS, n]
 bcc' (V i (Free _)) = undefined
 bcc' (V i (Global _)) = undefined
 bcc' (Lam i n ty (Sc1 t')) = do b <- tcc t'
-                                return $ [FUNCTION, length b + 1] ++ b ++ [RETURN]
+                                return $ [FUNCTION, length b] ++ b
 bcc' (App i t1 t2) = do b1 <- bcc' t1
                         b2 <- bcc' t2
                         return $ b1 ++ b2 ++ [CALL]
