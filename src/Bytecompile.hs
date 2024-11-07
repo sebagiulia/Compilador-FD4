@@ -114,7 +114,9 @@ showBC :: Bytecode -> String
 showBC = intercalate "; " . showOps
 
 bcc :: MonadFD4 m => TTerm -> m Bytecode
-bcc term = bcc' term >>= return . (++ [STOP])
+bcc term = do bc <- bcc' term 
+              let (_,bc_clean) = span (==DROP) (reverse bc)
+              return $ reverse bc_clean ++ [STOP]
 
 bcc' :: MonadFD4 m => TTerm -> m Bytecode
 bcc' (Const i (CNat n)) = return [CONST, n]
@@ -122,7 +124,7 @@ bcc' (V i (Bound n)) = return [ACCESS, n]
 bcc' (V i (Free _)) = undefined
 bcc' (V i (Global _)) = undefined
 bcc' (Lam i n ty (Sc1 t')) = do b <- tcc t'
-                                return $ [FUNCTION, length b + 1] ++ b ++ [RETURN]
+                                return $ [FUNCTION, length b] ++ b
 bcc' (App i t1 t2) = do b1 <- bcc' t1
                         b2 <- bcc' t2
                         return $ b1 ++ b2 ++ [CALL]
@@ -140,10 +142,6 @@ bcc' (IfZ i c t1 t2) = do c' <- bcc' c
                           let th = [FUNCTION, length t1' + 1] ++ t1' ++ [RETURN]
                           let el = [FUNCTION, length t2' + 1 ] ++ t2' ++ [RETURN]
                           return $ el ++ th ++ c' ++ [IFZ]
--- bcc' (IfZ i c t1 t2) = do c' <- bcc' c
---                           t1' <- bcc' t1
---                           t2' <- bcc' t2
---                           return $ c' ++ [JUMP, length t1'] ++ t1' ++ t2' 
 bcc' (Print i str arg) = do arg' <- bcc' arg
                             return $  arg' ++ [PRINT] ++ string2bc str ++ [NULL] ++ [PRINTN]
 
@@ -216,7 +214,7 @@ macchina (IFZ:cs) e ( I 0 : Fun e1 c1 : _ : s) = macchina c1 e1 (RA e cs:s)
 macchina (IFZ:cs) e ( I _ : _ : Fun e2 c2 : s) = macchina c2 e2 (RA e cs:s)
 macchina (JUMP:_:cs) e (I 0:s) = macchina cs e s
 macchina (JUMP:n:cs) e (I _:s) = macchina (drop n cs) e s
-macchina (TAILCALL:_) _ (v:Fun e' bc':RA e bc:s) = macchina bc' (v:e') (RA e bc:s)
+macchina (TAILCALL:_) _ (v:Fun e' bc':s) = macchina bc' (v:e') s
 macchina (STOP:cs) e s = return ()
 macchina (c:_) e s = failFD4 $ "Instrucción inválida en la Macchina: " ++ head (showOps [c])
 macchina [] e s = failFD4 "No hay más instrucciones en la Macchina"

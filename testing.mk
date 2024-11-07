@@ -20,7 +20,7 @@ EXTRAFLAGS	:=
 # comentando una de estas líneas.
 # CHECK	+= $(patsubst %,%.check_eval,$(TESTS))
 # CHECK	+= $(patsubst %,%.check_cek,$(TESTS))
-# CHECK	+= $(patsubst %,%.check_bc_h,$(TESTS))
+ CHECK	+= $(patsubst %,%.check_bc_h,$(TESTS))
  CHECK	+= $(patsubst %,%.check_bc,$(TESTS))
 # CHECK	+= $(patsubst %,%.check_eval_opt,$(TESTS))
 # CHECK	+= $(patsubst %,%.check_opt,$(TESTS))

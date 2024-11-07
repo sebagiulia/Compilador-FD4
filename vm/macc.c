@@ -197,7 +197,7 @@ void run(code init_c)
 			uint32_t i = *c++;
 			env e_aux = e;
 			while(i--) (e_aux = e_aux->next);
-			(*s++).i = e_aux->v.i;
+			*s++ = e_aux->v;
 			break;
 		}
 
@@ -323,13 +323,12 @@ void run(code init_c)
 		}
 
 		case SHIFT: {
-			value val = (*--s);
+			value val = *--s;
 			e = env_push(e, val);
 			break;
 		}
 
 		case DROP: {
-			env e_aux = e;
 			e = e->next;
 			break;
 		}
@@ -376,9 +375,8 @@ void run(code init_c)
 		}
 
 		case JUMP: {
-			uint32_t n = (*--s).i;
 			uint32_t val = *c++;
-			if (n) {
+			if ((*--s).i) {
 				c += val;
 			}
 			break;
