@@ -27,18 +27,10 @@ tc :: MonadFD4 m => Term         -- ^ término a chequear
                  -> m TTerm        -- ^ tipo del término
 tc (V p (Bound _)) _ = failPosFD4 p "typecheck: No deberia haber variables Bound"
 tc (V p (Free n)) bs = case lookup n bs of
-                           Nothing -> do
-                             m <- getMode
-                             case m of
-                               CompBC -> return (V (p, NatTy) (Free n))
-                               _ -> failPosFD4 p $ "Variable no declarada "++ppName n
+                           Nothing -> failPosFD4 p $ "Variable no declarada "++ppName n
                            Just ty -> return (V (p,ty) (Free n)) 
 tc (V p (Global n)) bs = case lookup n bs of
-                           Nothing -> do
-                             m <- getMode
-                             case m of
-                               CompBC -> return (V (p, NatTy) (Free n))
-                               _ -> failPosFD4 p $ "Variable no declarada "++ppName n
+                           Nothing -> failPosFD4 p $ "Variable no declarada "++ppName n
                            Just ty -> return (V (p,ty) (Global n))
 tc (Const p (CNat n)) _ = return (Const (p,NatTy) (CNat n))
 tc (Print p str t) bs = do 
@@ -98,10 +90,7 @@ expect :: MonadFD4 m => Ty    -- ^ tipo esperado
                      -> m TTerm
 expect ty tt = let ty' = getTy tt
                in if ty == ty' then return tt 
-                               else do m <- getMode
-                                       case m of
-                                         CompBC -> return tt
-                                         _ -> typeError tt $
+                               else typeError tt $
                                                  "Tipo esperado: "++ ppTy (ty2sty ty)
                                                ++"\npero se obtuvo: "++ ppTy (ty2sty ty')
 
@@ -109,27 +98,18 @@ expect ty tt = let ty' = getTy tt
 -- | devuelve un par con el tipo del dominio y el codominio de la función
 domCod :: MonadFD4 m => TTerm -> m (Ty, Ty)
 domCod tt = do
-    m <- getMode
     case getTy tt of
       FunTy d c -> return (d, c)
-      _         -> case m of
-                    CompBC -> return (NatTy, NatTy)
-                    _    -> typeError tt $ "Se esperaba un tipo función, pero se obtuvo: " ++ ppTy (ty2sty (getTy tt))
+      _         -> typeError tt $ "Se esperaba un tipo función, pero se obtuvo: " ++ ppTy (ty2sty (getTy tt))
 -- | 'tcDecl' chequea el tipo de una declaración
 -- y la agrega al entorno de tipado de declaraciones globales
 tcDecl :: MonadFD4 m  => Decl Term Ty -> m (Decl TTerm Ty)
 tcDecl (Decl p _ n ty _ t) = do
     --chequear si el nombre ya está declarado
     mty <- lookupTy n
-    m <- getMode
-    case m of
-      CompBC -> do  --ignoramos el nombres en modo Bytecode
-          s <- get
-          tt <- tc t (tyEnv s)                 
-          return (Decl p False n ty [] tt)
-      _ -> case mty of
-             Nothing -> do
-                    s <- get
-                    tt <- tc t (tyEnv s)                 
-                    return (Decl p False n ty [] tt)
-             Just _  -> failPosFD4 p $ n ++" ya está declarado"
+    case mty of
+           Nothing -> do
+                  s <- get
+                  tt <- tc t (tyEnv s)                 
+                  return (Decl p False n ty [] tt)
+           Just _  -> failPosFD4 p $ n ++" ya está declarado"

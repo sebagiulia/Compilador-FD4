@@ -126,9 +126,9 @@ compileFile f = do
         i <- getInter
         setInter False
         decls <- loadFile f
-        let notypes = concatMap quitDeclType decls
-        notypes' <- mapM typecheckDecl notypes
-        bc <- bytecompileModule notypes'
+        mapM_ handleDecl' decls
+        env <- get
+        bc <- bytecompileModule (glb env)
         printLnFD4 (showBC bc)
         let filepath = reverse (drop 4 (reverse f)) ++ ".bc" 
         liftIO $ bcWrite bc (filepath)
@@ -184,6 +184,9 @@ handleDecl d = do
         addDecl td
         ppterm <- ppDecl td
         printLnFD4 ppterm
+      CompBC -> do
+        td <- typecheckDecl d
+        addDecl td
       Eval -> do
         td <- typecheckDecl d
         ed <- evalDecl td

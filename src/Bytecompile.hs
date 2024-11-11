@@ -173,9 +173,23 @@ bc2string = map chr
 
 bytecompileModule :: MonadFD4 m => Module -> m Bytecode
 bytecompileModule [] = return []
-bytecompileModule m = bcc (foldr f (declBody neutro) (take (length m - 1) m))
-                      where neutro = m!!(length m - 1)
-                            f (Decl i _ n ty _ tm) tt = Let (i,ty) n ty tm (close n tt)
+bytecompileModule m = bcc (foldl f (declBody (m!!0)) (drop 1 m))
+                      where f tt (Decl i _ n ty _ tm) = Let (i,ty) n ty tm (close n (globalToFree n tt))
+
+-- intercambia variables globales por variables libres
+globalToFree :: Name -> Tm info Var -> Tm info Var
+globalToFree nm t = case t of
+   V p (Global x) -> if x == nm then V p (Free nm) else V p (Global x) 
+   V p (Bound i) -> V p (Bound i)
+   V p (Free x) -> V p (Free x)
+   Lam p x ty (Sc1 t) -> Lam p x ty (Sc1 (globalToFree nm t))
+   App p t1 t2 -> App p (globalToFree nm t1) (globalToFree nm t2)
+   Fix p f fty x xty (Sc2 t) -> Fix p f fty x xty (Sc2 (globalToFree nm t))
+   IfZ p c t e -> IfZ p (globalToFree nm c) (globalToFree nm t) (globalToFree nm e)
+   Const p cn -> Const p cn
+   Print p str t -> Print p str (globalToFree nm t)
+   BinaryOp p op t1 t2 -> BinaryOp p op (globalToFree nm t1) (globalToFree nm t2)
+   Let p x ty t1 (Sc1 t2) -> Let p x ty (globalToFree nm t1) (Sc1 (globalToFree nm t2))
 
 -- | Toma un bytecode, lo codifica y lo escribe en un archivo
 bcWrite :: Bytecode -> FilePath -> IO ()

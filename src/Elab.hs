@@ -134,9 +134,7 @@ elabTy (SVarTy n) = do
     ty <- lookupType n
     m <- getMode
     case ty of
-        Nothing -> case m of
-                    CompBC -> return NatTy
-                    _ -> failFD4 $ "Tipo no declarado: " ++ ppName n
+        Nothing -> failFD4 $ "Tipo no declarado: " ++ ppName n
         Just typ -> return typ
 
 typeConverter :: (Name, Ty) -> Ty -> Ty
