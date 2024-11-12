@@ -47,12 +47,10 @@ seek (Let _ x _ t s) e k       = seek t e ((FLet e x s):k)
 
 
 destroy :: MonadFD4 m => Val -> Kont -> m Val
-destroy (ClosFun e x xty (Sc1 t)) []       = return $ ClosFun [] x xty (Sc1 (replaceBounds (length e) e t))             -- Sustituye las variables ya aplicadas si las hay
-destroy (ClosFix e f fty x xty (Sc2 t)) [] = return $ ClosFix [] f fty x xty (Sc2 (replaceBounds ((length e) + 1) e t)) -- Sustituye las variables ya aplicadas si las hay
 destroy v [] = return v
 destroy v ((FPrint str):k) = 
   case v of 
-    VConst (CNat n) -> do printFD4 (str++show n)
+    VConst (CNat n) -> do printLnFD4 (str++show n)
                           destroy v k
     _           -> abort "Error de tipo en runtime! : FPrint"
 destroy v ((FBinaryOpI e op t):k) = 
@@ -100,5 +98,7 @@ replaceBounds pos e (V i var) =
 
 val2term :: (Pos, Ty) -> Val -> TTerm
 val2term p (VConst n) = Const p n
-val2term p (ClosFun e x t s1) = Lam p x t s1 
-val2term p (ClosFix e f fty x xty s2) = Fix p f fty x xty s2 
+val2term p (ClosFun e x xty (Sc1 t)) = let tt = replaceBounds (length e) e t
+                                       in Lam p x xty (Sc1 tt) 
+val2term p (ClosFix e f fty x xty (Sc2 t)) = let tt = replaceBounds ((length e) + 1) e t 
+                                             in Fix p f fty x xty (Sc2 tt) 
