@@ -134,10 +134,10 @@ compileFile f = do
         printLnFD4 (showBC bc)
         let filepath = reverse (drop 4 (reverse f)) ++ ".bc" 
         liftIO $ bcWrite bc (filepath)
-      CompC -> do
-        env <- get
-        ircs <- runCC (glb env)
-        ir2c (ircs)
+      -- CompC -> do
+      --   env <- get
+      --   ircs <- runCC (glb env)
+      --   ir2c (ircs)
       _ -> do setInter i
   where quitDeclType (Left _) = []
         quitDeclType (Right d) = [d] 

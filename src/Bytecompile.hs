@@ -83,7 +83,7 @@ pattern DROP     = 12
 pattern PRINT    = 13
 pattern PRINTN   = 14
 pattern JUMP     = 15
-pattern IFZ      = 16
+pattern CJUMP    = 16
 pattern TAILCALL = 17
 
 --función util para debugging: muestra el Bytecode de forma más legible.
@@ -106,8 +106,8 @@ showOps (PRINT:xs)       = let (msg,_:rest) = span (/=NULL) xs
                            in ("PRINT " ++ show (bc2string msg)) : showOps rest
 showOps (PRINTN:xs)      = "PRINTN" : showOps xs
 showOps (ADD:xs)         = "ADD" : showOps xs
-showOps (IFZ:xs)         = "IFZ" : showOps xs
 showOps (TAILCALL:xs)    = "TAILCALL" : showOps xs
+showOps (CJUMP:xs)       = "CJUMP" : showOps xs
 showOps (x:xs)           = (show x): showOps xs
 
 showBC :: Bytecode -> String
@@ -121,8 +121,8 @@ bcc term = do bc <- bcc' term
 bcc' :: MonadFD4 m => TTerm -> m Bytecode
 bcc' (Const i (CNat n)) = return [CONST, n]
 bcc' (V i (Bound n)) = return [ACCESS, n]
-bcc' (V i (Free _)) = undefined
-bcc' (V i (Global _)) = undefined
+bcc' (V i (Free n)) = failFD4 $ "Error: Variable libre encontrada: " ++ n
+bcc' (V i (Global n)) = failFD4 $ "Error: Variable global encontrada: " ++ n
 bcc' (Lam i n ty (Sc1 t')) = do b <- tcc t'
                                 return $ [FUNCTION, length b] ++ b
 bcc' (App i t1 t2) = do b1 <- bcc' t1
@@ -139,9 +139,7 @@ bcc' (Fix i f ty1 x ty2 (Sc2 t')) = do b <- bcc' t'
 bcc' (IfZ i c t1 t2) = do c' <- bcc' c
                           t1' <- bcc' t1
                           t2' <- bcc' t2
-                          let th = [FUNCTION, length t1' + 1] ++ t1' ++ [RETURN]
-                          let el = [FUNCTION, length t2' + 1 ] ++ t2' ++ [RETURN]
-                          return $ el ++ th ++ c' ++ [IFZ]
+                          return $ c' ++ [CJUMP, length t1' + 2] ++ t1' ++ [JUMP, length t2'] ++ t2'
 bcc' (Print i str arg) = do arg' <- bcc' arg
                             return $  arg' ++ [PRINT] ++ string2bc str ++ [NULL] ++ [PRINTN]
 
@@ -152,7 +150,7 @@ tcc (App i t1 t2) = do bt1 <- bcc' t1
 tcc (IfZ i c t1 t2) = do c' <- bcc' c
                          t1' <- tcc t1
                          t2' <- tcc t2
-                         return $ c' ++ [JUMP, length t1'] ++ t1' ++ t2'
+                         return $ c' ++ [CJUMP, length t1'] ++ t1' ++ t2'
 tcc (Let i n ty t1 (Sc1 t2)) = do b1 <- bcc' t1
                                   t2' <- tcc t2
                                   return $ b1 ++ [SHIFT] ++ t2'
@@ -224,10 +222,9 @@ macchina (PRINT:cs) e s = do let str = takeWhile (/=NULL) cs
                              printFD4 $ bc2string str
                              macchina (drop (length str) cs) e s
 macchina (NULL:cs) e s = macchina cs e s
-macchina (IFZ:cs) e ( I 0 : Fun e1 c1 : _ : s) = macchina c1 e1 (RA e cs:s)
-macchina (IFZ:cs) e ( I _ : _ : Fun e2 c2 : s) = macchina c2 e2 (RA e cs:s)
-macchina (JUMP:_:cs) e (I 0:s) = macchina cs e s
-macchina (JUMP:n:cs) e (I _:s) = macchina (drop n cs) e s
+macchina (CJUMP:_:cs) e (I 0:s) = macchina cs e s
+macchina (CJUMP:n:cs) e (I _:s) = macchina (drop n cs) e s
+macchina (JUMP:n:cs) e s = macchina (drop n cs) e s
 macchina (TAILCALL:_) _ (v:Fun e' bc':s) = macchina bc' (v:e') s
 macchina (STOP:cs) e s = return ()
 macchina (c:_) e s = failFD4 $ "Instrucción inválida en la Macchina: " ++ head (showOps [c])

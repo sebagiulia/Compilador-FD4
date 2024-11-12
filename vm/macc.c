@@ -36,7 +36,7 @@ enum {
 	PRINT    = 13,
 	PRINTN   = 14,
 	JUMP     = 15,
-	IFZ      = 16,
+	CJUMP    = 16,
 	TAILCALL = 17
 };
 
@@ -347,21 +347,9 @@ void run(code init_c)
 			break;
 		}
 
-		case IFZ: {
-			uint32_t cond = (*--s).i;
-			value th = *--s;
-			value el = *--s;
-
-			struct clo ret_addr = { .clo_env = e, .clo_body = c };
-			(*s++).clo = ret_addr;
-
-			if (cond == 0) {
-				e = th.clo.clo_env;
-				c = th.clo.clo_body;
-			} else {
-				e = el.clo.clo_env;
-				c = el.clo.clo_body;
-			}
+		case JUMP: {
+			uint32_t val = *c++;
+			c += val;
 			break;
 		}
 
@@ -374,7 +362,7 @@ void run(code init_c)
 			break;
 		}
 
-		case JUMP: {
+		case CJUMP: {
 			uint32_t val = *c++;
 			if ((*--s).i) {
 				c += val;
