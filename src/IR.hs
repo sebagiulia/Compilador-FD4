@@ -40,3 +40,41 @@ La siguiente instancia es sólo para debugging
 instance Show IrDecls where
   show (IrDecls decls) =
    concatMap (\d -> show d ++ "\n") decls
+
+
+{-
+
+let id (x:Nat) : Nat = x
+          
+          |
+          |
+          v
+
+let _g0 : Nat = e0
+
+_g0(clos, x) = x
+
+let id (x : Nat) : Nat = _g0[x]
+
+          |
+          |
+          v
+
+IrFun _g0 Nat [("x",Nat)] (IrVar x)
+
+
+ 
+IrVal id Nat (MakeClosure _g0 [] Nat)
+
+id 3
+
+irCall (Global id) 3 Nat
+
+g0 [3]
+
+
+
+
+
+
+-}

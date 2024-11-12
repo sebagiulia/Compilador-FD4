@@ -132,7 +132,6 @@ elabTy (SFunTy a b) = do
     return $ FunTy sa sb 
 elabTy (SVarTy n) = do
     ty <- lookupType n
-    m <- getMode
     case ty of
         Nothing -> failFD4 $ "Tipo no declarado: " ++ ppName n
         Just typ -> return typ

@@ -50,6 +50,7 @@ parseMode = (,) <$>
       <|> flag Eval           Eval           ( long "eval" <> short 'e' <> help "Evaluar programa")
       <|> flag CompBC           CompBC           ( long "bytecompile" <> short 'm' <> help "Compilar a Macchina")
       <|> flag RunMV           RunMV           ( long "runVM" <> short 'r' <> help "Ejecutar bytecode en la Macchina")
+      <|> flag CompC           CompC           ( long "cc" <> help "Ejecutar bytecode en la Macchina")
       )
    <*> pure False
 
@@ -121,23 +122,23 @@ loadFile f = do
 compileFile ::  MonadFD4 m => FilePath -> m ()
 compileFile f = do
     m <- getMode
+    i <- getInter
+    setInter False
+    when i $ printLnFD4 ("Abriendo "++f++"...")
+    decls <- loadFile f
+    mapM_ handleDecl' decls
     case m of
       CompBC -> do
-        i <- getInter
-        setInter False
-        decls <- loadFile f
-        mapM_ handleDecl' decls
         env <- get
         bc <- bytecompileModule (glb env)
         printLnFD4 (showBC bc)
         let filepath = reverse (drop 4 (reverse f)) ++ ".bc" 
         liftIO $ bcWrite bc (filepath)
-      _ -> do i <- getInter
-              setInter False
-              when i $ printLnFD4 ("Abriendo "++f++"...")
-              decls <- loadFile f
-              mapM_ handleDecl' decls
-              setInter i
+      CompC -> do
+        env <- get
+        ircs <- runCC (glb env)
+        ir2c (ircs)
+      _ -> do setInter i
   where quitDeclType (Left _) = []
         quitDeclType (Right d) = [d] 
 

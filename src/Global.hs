@@ -37,6 +37,7 @@ data Mode =
   | Eval
   | CompBC
   | RunMV
+  | CompC
 data Conf = Conf {
     opt :: Bool,          --  ^ True, si estan habilitadas las optimizaciones.
     modo :: Mode

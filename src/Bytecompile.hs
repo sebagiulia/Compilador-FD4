@@ -178,7 +178,7 @@ bytecompileModule m = bcc (foldl f (declBody (m!!0)) (drop 1 m))
 
 -- intercambia variables globales por variables libres
 globalToFree :: Name -> Tm info Var -> Tm info Var
-globalToFree nm t = case t of
+globalToFree nm t' = case t' of
    V p (Global x) -> if x == nm then V p (Free nm) else V p (Global x) 
    V p (Bound i) -> V p (Bound i)
    V p (Free x) -> V p (Free x)
