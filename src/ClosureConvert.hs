@@ -8,6 +8,10 @@ ty2irty :: Ty -> IrTy
 ty2irty NatTy = IrInt
 ty2irty (FunTy t1 t2) = IrFunTy (ty2irty t1) (ty2irty t2)
 
+findIrDecl :: IrDecl -> Name -> Bool
+findIrDecl (IrFun n _ _ b) name = n == name
+findIrDecl _ _ = False
+
 closureConvert :: TTerm -> [Ir] -> StateT Int (Writer [IrDecl]) Ir
 closureConvert (V _ (Free x)) _ = return $ IrVar x
 closureConvert (V _ (Global x)) _ = return $ IrGlobal x
@@ -24,7 +28,8 @@ closureConvert (Lam _ x ty (Sc1 t)) vars = do
 closureConvert (App _ t u) vars = do
   (t'@(MkClosure name v), decls) <- listen $ closureConvert t vars
   u' <- closureConvert u
-  return $ IrLet "clos" IrCLo t' (IrCall  (u':decls) )
+  let body = irDeclBody $ find findIrDecl decls
+  return $ IrLet "clos" IrCLo t' (IrCall body (u':vars))
 closureConvert (Print _ str t) = do
   t' <- closureConvert t
   return $ IrPrint str t'
