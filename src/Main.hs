@@ -48,9 +48,9 @@ parseMode = (,) <$>
       <|> flag InteractiveCEK InteractiveCEK ( long "interactiveCEK" <> short 'c' <> help "Ejecutar de forma interactiva en maquina abstracta")
       <|> flag CEK            CEK            ( long "cek" <> short 'k' <> help "Ejecutar en maquina abstracta")
       <|> flag Eval           Eval           ( long "eval" <> short 'e' <> help "Evaluar programa")
-      <|> flag CompBC           CompBC           ( long "bytecompile" <> short 'm' <> help "Compilar a Macchina")
-      <|> flag RunMV           RunMV           ( long "runVM" <> short 'r' <> help "Ejecutar bytecode en la Macchina")
-      <|> flag CompC           CompC           ( long "cc" <> help "Ejecutar bytecode en la Macchina")
+      <|> flag CompBC         CompBC         ( long "bytecompile" <> short 'm' <> help "Compilar a Macchina")
+      <|> flag RunMV          RunMV          ( long "runVM" <> short 'r' <> help "Ejecutar bytecode en la Macchina")
+      <|> flag CompC          CompC          ( long "cc" <> help "Ejecutar bytecode en la Macchina")
       )
    <*> pure False
 
@@ -137,7 +137,7 @@ compileFile f = do
       -- CompC -> do
       --   env <- get
       --   ircs <- runCC (glb env)
-      --   ir2c (ircs)
+      --   ir2C (ircs)
       _ -> do setInter i
   where quitDeclType (Left _) = []
         quitDeclType (Right d) = [d] 

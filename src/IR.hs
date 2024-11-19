@@ -77,4 +77,57 @@ g0 [3]
 
 
 
+let suma : Nat -> (Nat -> Nat) =
+  fun (x:Nat) ->
+    fun (y:Nat) -> 
+      fun (z:Nat) -> x + y + z 
+
+let suma5 : Nat -> Nat = suma 5
+
+              |
+              |
+              | Closure convert
+              |
+              |
+              v
+
+let _g0 (z:Nat): Nat -> e0 + e1 + z
+
+let suma : Nat -> (Nat -> Nat) =
+  fun (x:Nat) ->
+    fun (y:Nat) -> _g0[x, y] 
+
+let suma5 : Nat -> Nat = suma 5
+
+
+              |
+              |
+              | Closure convert
+              |
+              |
+              v
+
+let _g0 (z:Nat): Nat = e0 + e1 + z
+let _g1 (y:Nat): Nat -> Nat = _g0[x, y]
+
+let suma : Nat -> (Nat -> Nat) =
+  fun (x:Nat) -> _g1[x] 
+
+
+              |
+              |
+              | Hoisting pt1
+              |
+              |
+              v
+
+let _g0 (z:Nat): Nat = e0 + e1 + z
+let _g1 (y:Nat): Nat -> Nat = _g0[y, x]
+let _g2 (x:Nat): Nat -> Nat -> Nat = _g1[x] 
+let suma : Nat -> (Nat -> Nat -> Nat) = _g2[]
+
+let suma5 : Nat -> Nat = suma 5
+
+
+
 -}
