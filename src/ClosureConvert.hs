@@ -3,13 +3,14 @@ module ClosureConvert where
 import IR
 import Lang
 import MonadFD4
+import Control.Monad.Writer
 
 ty2irty :: Ty -> IrTy
 ty2irty NatTy = IrInt
-ty2irty (FunTy t1 t2) = IrFunTy (ty2irty t1) (ty2irty t2)
+ty2irty (FunTy t1 t2) = IrFunTy
 
-findIrDecl :: IrDecl -> Name -> Bool
-findIrDecl (IrFun n _ _ b) name = n == name
+findIrDecl :: Name -> IrDecl -> Bool
+findIrDecl name (IrFun n _ _ b) = n == name
 findIrDecl _ _ = False
 
 closureConvert :: TTerm -> [Ir] -> StateT Int (Writer [IrDecl]) Ir
@@ -26,26 +27,29 @@ closureConvert (Lam _ x ty (Sc1 t)) vars = do
   tell [dec]
   return $ MkClosure fresh vars
 closureConvert (App _ t u) vars = do
-  (t'@(MkClosure name v), decls) <- listen $ closureConvert t vars
+  (t', decls) <- listen $ closureConvert t vars
   u' <- closureConvert u
-  let body = irDeclBody $ find findIrDecl decls
+  case t' of 
+    IrGlobal x -> do 
+      let (IrVal _ _ def) = find (findIrDecl x) decls
+      return $ IrLet "clos" IrClo def (IrCall )
   return $ IrLet "clos" IrCLo t' (IrCall body (u':vars))
-closureConvert (Print _ str t) = do
+closureConvert (Print _ str t) _ = do
   t' <- closureConvert t
   return $ IrPrint str t'
-closureConvert (BinaryOp _ op t u) = do
+closureConvert (BinaryOp _ op t u) _ = do
   t' <- closureConvert t
   u' <- closureConvert u
   return $ IrBinaryOp op t' u'
-closureConvert (Fix _ f fty x xty t) = undefined
-closureConvert (IfZ _ c t e) = do
+closureConvert (Fix _ f fty x xty t) _ = undefined
+closureConvert (IfZ _ c t e) _ = do
   c' <- closureConvert c
   t' <- closureConvert t
   e' <- closureConvert e
   return $ IrIfz c' t' e'
-closureConvert (Let _ x ty t u) = do
+closureConvert (Let _ x ty t u) _ = undefined
 
 
 runCC :: [Decl TTerm] -> [IrDecl]
-
+runCC a = undefined
 
