@@ -22,6 +22,9 @@ import Control.Exception ( catch , IOException )
 import System.IO ( hPrint, stderr, hPutStrLn )
 import Data.Maybe ( fromMaybe )
 import Bytecompile
+import IR
+import ClosureConvert
+import C
 
 import System.Exit ( exitWith, ExitCode(ExitFailure) )
 import Options.Applicative
@@ -133,11 +136,13 @@ compileFile f = do
         bc <- bytecompileModule (glb env)
         printLnFD4 (showBC bc)
         let filepath = reverse (drop 4 (reverse f)) ++ ".bc" 
-        liftIO $ bcWrite bc (filepath)
-      -- CompC -> do
-      --   env <- get
-      --   ircs <- runCC (glb env)
-      --   ir2C (ircs)
+        liftIO $ bcWrite bc filepath
+      CompC -> do
+        env <- get
+        let irds = runCC (glb env)
+        let c = ir2C (IrDecls irds)
+        let filepath = reverse (drop 4 (reverse f)) ++ ".c" 
+        liftIO $ writeFile filepath c
       _ -> do setInter i
   where quitDeclType (Left _) = []
         quitDeclType (Right d) = [d] 
@@ -192,7 +197,10 @@ handleDecl d = do
         td <- typecheckDecl d
         ed <- evalDecl td
         addDecl ed
-      _ -> undefined
+      CompC -> do
+        td <- typecheckDecl d
+        addDecl td
+      _ -> failFD4 "Modo no implementado"
   
 typecheckDecl :: MonadFD4 m => Decl STerm STy -> m (Decl TTerm Ty)
 typecheckDecl t = do 

@@ -2,6 +2,7 @@ module ClosureConvert where
 
 import IR
 import Lang
+import Subst
 import MonadFD4
 import Control.Monad.Writer
 
@@ -13,58 +14,66 @@ findIrDecl :: Name -> IrDecl -> Bool
 findIrDecl name (IrFun n _ _ b) = n == name
 findIrDecl _ _ = False
 
-closureConvert :: TTerm -> [Ir] -> StateT Int (Writer [IrDecl]) Ir
+makeletirs :: [(Ir, IrTy)] -> Ir -> Int -> Ir
+makeletirs [] t _ = t
+makeletirs (((IrVar x),ty):xs) t n = IrLet x ty (IrAccess (IrVar "clos") ty n) (makeletirs xs t (n+1))
+makeletirs _ _ _ = undefined 
+
+closureConvert :: TTerm -> [(Ir, IrTy)] -> StateT Int (Writer [IrDecl]) Ir
+closureConvert (V _ (Bound i)) _ = undefined
 closureConvert (V _ (Free x)) _ = return $ IrVar x
 closureConvert (V _ (Global x)) _ = return $ IrGlobal x
 closureConvert (Const _ c) _ = return $ IrConst c
 closureConvert (Lam _ x ty t) vars = do
-  t' <- closureConvert (open x t) (IrVar x:vars)
+  let ot = open x t
+  t' <- closureConvert ot ((IrVar x, ty2irty ty):vars) 
   n <- get  
   let fresh = "__g" ++ show n
   modify (+1)
-  let irty = ty2irty $ getTy t
-  let dec = IrFun fresh irty [(x,ty2irty ty)] t'
+  let irty = ty2irty $ getTy ot
+  let dec = IrFun fresh irty [("clos", IrClo), (x,ty2irty ty)] (makeletirs vars t' 1) 
   tell [dec]
-  return $ MkClosure fresh vars
-closureConvert (App _ t u) vars = do
-  (t', decls) <- listen $ closureConvert t vars
-  u' <- closureConvert u
-  case t' of 
-    IrGlobal x -> do 
-      let (IrVal _ ty (MkClosure name vars)) = find (findIrDecl x) decls
-      return $ (IrCall (IrVar name) [vars++u']) ty
-    MkClousure name vars -> do
-      return $ (IrCall (IrVar name) [u':vars])
-    _ -> undefined --------------------------------------------------------------------------------- arreglar
-closureConvert (Print _ str t) _ = do
-  t' <- closureConvert t
+  return $ MkClosure fresh (map fst vars)
+closureConvert (App (_, ty) t u) vars = do
+  clo <- closureConvert t vars
+  u' <- closureConvert u vars
+  return $ (IrCall (IrAccess clo IrFunTy 0) [clo, u'] (ty2irty ty))
+closureConvert (Print _ str t) vars = do
+  t' <- closureConvert t vars
   return $ IrPrint str t'
-closureConvert (BinaryOp _ op t u) _ = do
-  t' <- closureConvert t
-  u' <- closureConvert u
+closureConvert (BinaryOp _ op t u) vars = do
+  t' <- closureConvert t vars
+  u' <- closureConvert u vars
   return $ IrBinaryOp op t' u'
 closureConvert (Fix _ f fty x xty t) vars = do
   n <- get  
   let fresh = "__g" ++ show n
-  let fvf = "__f"++ show n
-  let fvx = "__x"++ show n
   modify (+1)
-  t' <- closureConvert (open2 fvf fvx t) (IrVar fvx:IrVar fvf:vars)
-  let irty = ty2irty $ getTy t
-  let dec = IrFun fresh irty [(f,ty2irty fty), (x,ty2irty ty)] t' 
+  let ot = open2 f x t
+  t' <- closureConvert ot ((IrVar f, ty2irty fty):(IrVar x, ty2irty xty):vars)
+  let irty = ty2irty $ getTy ot
+  let dec = IrFun fresh irty [("clos", IrClo), (x,ty2irty xty)] t' 
   tell [dec]
-  return $ MkClosure fresh vars
+  return $ MkClosure fresh (map fst vars)
+closureConvert (IfZ _ c t e) vars = do
+  c' <- closureConvert c vars 
+  t' <- closureConvert t vars 
+  e' <- closureConvert e vars 
+  return $ IrIfZ c' t' e'
+closureConvert (Let _ x ty t u) vars = do
+  t' <- closureConvert t vars
+  u' <- closureConvert (open x u) ((IrVar x, ty2irty ty):vars)
+  return $ IrLet x (ty2irty ty) t' u'
 
-closureConvert (IfZ _ c t e) _ = do
-  c' <- closureConvert c
-  t' <- closureConvert t
-  e' <- closureConvert e
-  return $ IrIfz c' t' e'
-closureConvert (Let _ x ty t u) _ = undefined
 
-
-runCC :: [Decl TTerm] -> [IrDecl]
-runCC a = undefined
+runCC :: [Decl TTerm Ty] -> [IrDecl]
+runCC decls = let (_, irDecls') = runWriter $ runStateT (mapM f decls) 0
+              in irDecls'
+    where f (Decl _ _ n ty _ b) = do 
+            t' <- closureConvert b [] 
+            let irval = IrVal n (ty2irty ty) t' 
+            tell [irval]
+            return irval
 
 
 
@@ -75,7 +84,7 @@ runCC a = undefined
   runCC [suma] =
     [IrVal suma (MkClousure _g1 []).
      IrFun _g1 ["x"] (MkClosure _g0 [x]),
-     IrFun _g0 ["y", "x"] (BinaryOP (Free "y") (Free "x"))]
+     IrFun _g0 ["y"] (IrBinaryOP (IrVar "y") (IrVar "x"))]
 
 
 
