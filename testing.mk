@@ -27,7 +27,7 @@ EXTRAFLAGS	:=
  CHECK	+= $(patsubst %,%.check_cc,$(TESTS))
 
 # Ejemplo: así se puede apagar un test en particular.
-CHECK	:= $(filter-out tests/ok/10-sugar/600-drop_const_12.%,$(CHECK))
+#CHECK	:= $(filter-out tests/ok/10-sugar/600-drop_const_12.%,$(CHECK))
 
 CHECK	:= $(filter-out tests/ok/10-sugar/120-letfunin.%,$(CHECK))
 # Esta regla corre todos los tests (por sus dependencias) y luego
