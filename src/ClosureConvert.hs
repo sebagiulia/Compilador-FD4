@@ -8,7 +8,7 @@ import Control.Monad.Writer
 
 ty2irty :: Ty -> IrTy
 ty2irty NatTy = IrInt
-ty2irty (FunTy t1 t2) = IrFunTy
+ty2irty (FunTy t1 t2) = IrClo
 
 findIrDecl :: Name -> IrDecl -> Bool
 findIrDecl name (IrFun n _ _ b) = n == name
@@ -66,14 +66,15 @@ closureConvert (Let _ x ty t u) vars = do
   return $ IrLet x (ty2irty ty) t' u'
 
 
+
 runCC :: [Decl TTerm Ty] -> [IrDecl]
-runCC decls = let (_, irDecls') = runWriter $ runStateT (mapM f decls) 0
+runCC decls = let (_, irDecls') = runWriter $ runStateT (mapM f (reverse decls)) 0
               in irDecls'
     where f (Decl _ _ n ty _ b) = do 
             t' <- closureConvert b [] 
             let irval = IrVal n (ty2irty ty) t' 
             tell [irval]
-            return irval
+            return ()
 
 
 
@@ -127,4 +128,26 @@ int main() {
   return 0;
 }
 
+
+cc (App Nat (App g 10) 20) 
+    |
+    v
+  cc (App (Funty Nat Nat)) g 10) 
+          |
+          v
+        cc g = mk _g []
+        cc 10 = const 10  
+        return IrCall (Access (mk _g []) 0 :: FunTy) [(mk _g []), 10]) IrClo 
+  cc 20 = 20
+  return IrCall (Access (clos :: IrClo (FunTy) 0) :: funfd4
+                          [clos, 10]))), 20]) :: int
+
+
+(cast ty) (funcast) (ir2doc ((Access 
+                              (IrCall clos 0 :: funfd4:int) 
+                          [clos, 10]))), 20]))) 
+
+
+(int (funf4 (clo) )
+ 
  -} 
