@@ -16,7 +16,7 @@ import Lang
 import Subst
 import MonadFD4
 import PPrint (ppName)
-import Global 
+
 
 -- | 'elab' transforma variables ligadas en índices de de Bruijn
 -- en un término dado. 

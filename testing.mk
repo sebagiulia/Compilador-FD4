@@ -18,16 +18,16 @@ EXTRAFLAGS	:=
 
 # Las reglas a chequear. Se puede deshabilitar toda una familia de tests
 # comentando una de estas líneas.
-# CHECK	+= $(patsubst %,%.check_eval,$(TESTS))
-# CHECK	+= $(patsubst %,%.check_cek,$(TESTS))
-# CHECK	+= $(patsubst %,%.check_bc_h,$(TESTS))
-# CHECK	+= $(patsubst %,%.check_bc,$(TESTS))
+ CHECK	+= $(patsubst %,%.check_eval,$(TESTS))
+ CHECK	+= $(patsubst %,%.check_cek,$(TESTS))
+ CHECK	+= $(patsubst %,%.check_bc_h,$(TESTS))
+ CHECK	+= $(patsubst %,%.check_bc,$(TESTS))
 # CHECK	+= $(patsubst %,%.check_eval_opt,$(TESTS))
 # CHECK	+= $(patsubst %,%.check_opt,$(TESTS))
  CHECK	+= $(patsubst %,%.check_cc,$(TESTS))
 
 # Ejemplo: así se puede apagar un test en particular.
-CHECK	:= $(filter-out tests/ok/00-basicos/401-inf.%,$(CHECK))
+CHECK	:= $(filter-out tests/ok/10-sugar/600-drop_const_12.%,$(CHECK))
 
 CHECK	:= $(filter-out tests/ok/10-sugar/120-letfunin.%,$(CHECK))
 # Esta regla corre todos los tests (por sus dependencias) y luego
